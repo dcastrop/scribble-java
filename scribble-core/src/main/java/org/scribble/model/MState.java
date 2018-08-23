@@ -146,12 +146,13 @@ public abstract class MState<
 		return getAllSuccessors();
 	}
 
-	// For non-deterministic actions
+	// For non-deterministic actions 
+	// Result may contain duplicates ("merge")
 	public final List<S> getSuccessors(A a)
 	{
 		return IntStream.range(0, this.actions.size())
-			.filter((i) -> this.actions.get(i).equals(a))
-			.mapToObj((i) -> this.succs.get(i))
+			.filter(i -> this.actions.get(i).equals(a))
+			.mapToObj(i -> this.succs.get(i))
 			.collect(Collectors.toList());
 	}
 

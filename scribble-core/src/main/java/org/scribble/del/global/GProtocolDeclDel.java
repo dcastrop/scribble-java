@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.scribble.ast.AstFactory;
 import org.scribble.ast.Module;
@@ -44,6 +45,8 @@ import org.scribble.main.ScribbleException;
 import org.scribble.model.MState;
 import org.scribble.model.endpoint.EGraph;
 import org.scribble.model.endpoint.EState;
+import org.scribble.model.endpoint.EStateKind;
+import org.scribble.model.endpoint.actions.EAction;
 import org.scribble.model.global.SGraph;
 import org.scribble.type.kind.Global;
 import org.scribble.type.name.GProtocolName;
@@ -155,11 +158,11 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 		GProtocolName fullname = gpd.getFullMemberName((Module) parent);
 		if (checker.job.spin)
 		{
-			if (checker.job.fair)
+			/*if (checker.job.fair)
 			{
 				throw new RuntimeException("[TODO]: -spin currently does not support fair ouput choices.");
-			}
-			validateBySpin(checker.job, fullname);
+			}*/
+			validateBySpin(checker.job, fullname, checker.job.fair);
 		}
 		else
 		{
@@ -179,8 +182,15 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 		//graph.toModel().validate(job);
 		job.sf.newSModel(graph).validate(job);
 	}
+	
+	private static String getPmlLabel(Role r, EState s)  // FIXME: factor out with EGraph.toPml
+	{
+		return (s.getStateKind() == EStateKind.TERMINAL)
+				? "end" + r + s.id
+				: "label" + r + s.id;
+	}
 		
-	private static void validateBySpin(Job job, GProtocolName fullname) throws ScribbleException
+	private static void validateBySpin(Job job, GProtocolName fullname, boolean fair) throws ScribbleException
 	{
 		JobContext jc = job.getContext();
 		Module mod = jc.getModule(fullname.getPrefix());
@@ -200,7 +210,7 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 
 		pml += "\n";
 		List<Role[]> pairs = new LinkedList<>();
-		for (Role r1 : rs)
+		/*for (Role r1 : rs)
 		{
 			for (Role r2 : rs)
 			{
@@ -209,7 +219,10 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 					pairs.add(new Role[] {r1, r2});
 				}
 			}
-		}
+		}*/
+		pairs = rs.stream()
+				.flatMap(r1 -> rs.stream().flatMap(r2 -> !r1.equals(r2) ? Stream.<Role[]>of(new Role[]{r1, r2}) : Stream.<Role[]>empty()))
+				.collect(Collectors.toList());
 		//for (Role[] p : (Iterable<Role[]>) () -> pairs.stream().sorted().iterator())
 		for (Role[] p : pairs)
 		{
@@ -236,6 +249,7 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 			System.out.println("[-spin]: Promela processes\n" + pml + "\n");
 		}
 		
+		List<String> fairChoices = new LinkedList<>();  // Poly-output only
 		List<String> clauses = new LinkedList<>();
 		for (Role r : rs)
 		{
@@ -247,9 +261,28 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 			{
 				tmp.remove(g.term);
 			}
-			tmp.forEach(  // Throws exception, cannot use flatMap
-					s -> clauses.add("!<>[]" + r + "@label" + r + s.id)  // FIXME: factor out
-			);
+			tmp.forEach(s ->  // Throws exception, cannot use flatMap
+			{
+				EStateKind kind = s.getStateKind();
+				if (kind == EStateKind.UNARY_INPUT || kind == EStateKind.POLY_INPUT)  // FIXME: include outputs due to bounded model?  or subsumed by eventual stability
+				{
+					clauses.add("!<>[]" + r + "@" + getPmlLabel(r, s));  // FIXME: factor out label
+				}
+				else if (kind != EStateKind.OUTPUT && kind != EStateKind.TERMINAL)
+				{
+					throw new RuntimeException("[-spin] TODO: " + kind);
+				}
+				if (fair)
+				{
+					List<EAction> as = s.getActions();
+					if (kind == EStateKind.OUTPUT && as.size() > 1)
+					{
+						fairChoices.add("([]<>" + r + "@" + getPmlLabel(r, s) + " -> [](" 
+								+ s.getSuccessors().stream().distinct().map(succ -> "<>" + r + "@" + getPmlLabel(r, succ)).collect(Collectors.joining(" && "))
+								+ "))");  // FIXME: factor out label
+					}
+				}
+			});
 		}
 		//*/
 		/*String roleProgress = "";  // This way is not faster
@@ -280,7 +313,7 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 		}
 		//eventualStability = "[]<>(" + eventualStability + ")";
 		eventualStability = "[](" + eventualStability + ")";  // FIXME: current "eventual reception", not eventual stability
-		clauses.add(eventualStability);
+		//clauses.add(eventualStability);
 
 		//int batchSize = 10;  // FIXME: factor out
 		int batchSize = 6;  // FIXME: factor out  // FIXME: dynamic batch sizing based on previous batch duration?
@@ -288,7 +321,12 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 		{
 			int j = (i+batchSize < clauses.size()) ? i+batchSize : clauses.size();
 			String batch = clauses.subList(i, j).stream().collect(Collectors.joining(" && "));
-			String ltl = "ltl {\n" + batch + "\n" + "}";
+			String ltl =
+					  "ltl {\n"
+					+ ((fair && !fairChoices.isEmpty()) ? "(" + fairChoices.stream().map(c -> c.toString()).collect(Collectors.joining(" && ")) + ") ->" : "")  // FIXME: filter by batching? -- optimise batches more "semantically"?
+					+ "\n"
+					+ "(" + batch + ")"
+					+ "\n" + "}";
 			if (job.debug)
 			{
 				System.out.println("[-spin] Batched ltl:\n" + ltl + "\n");
@@ -298,6 +336,21 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 				throw new ScribbleException("Protocol not valid:\n" + gpd);
 			}
 			i += batchSize;
+		}
+
+		String ltl =
+					"ltl {\n"
+				+ ((fair && !fairChoices.isEmpty()) ? "(" + fairChoices.stream().map(c -> c.toString()).collect(Collectors.joining(" && ")) + ") ->" : "")  // FIXME: filter by batching? -- optimise batches more "semantically"?
+				+ "\n"
+				+ "(" + eventualStability + ")"
+				+ "\n" + "}";
+		if (job.debug)
+		{
+			System.out.println("[-spin] Eventual stability:\n" + ltl + "\n");
+		}
+		if (!runSpin(fullname.toString(), pml + "\n\n" + ltl))
+		{
+			throw new ScribbleException("Protocol not valid:\n" + gpd);
 		}
 	}
 

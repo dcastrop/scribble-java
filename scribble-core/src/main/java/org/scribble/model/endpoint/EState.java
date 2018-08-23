@@ -75,7 +75,8 @@ public class EState extends MPrettyState<RecVar, EAction, EState, Local>
 					  "if\n"
 					+ as.stream().map(a ->
 							  "::\n"
-							+ "skip ->\n"
+							//+ "skip ->\n"
+							+ "nfull(s_" + r + "_" + a.peer + ")\n"  // CHECKME
 							+ "s_" + r + "_" + a.peer + "!" + a.mid + ";\n"
 							+ "goto " + getLabel(seen, getSuccessor(a), r) + "\n"
 						)

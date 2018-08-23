@@ -35,6 +35,21 @@ module tmp.Test;
 
 
 
+global protocol Proto1(role A, role B, role C)
+{
+	choice at A
+	{
+		m1() from A to B;
+		//m2() from A to C;
+		do Proto1(A, B, C);
+	}
+	or
+	{
+		m3() from A to B;
+		m4() from A to C;
+	}
+}
+
 
 /*
 //type <dotnet> "System.UInt32" from "..." as int;
@@ -109,7 +124,7 @@ aux global protocol Loop2(role P, role R, role C)
 
 
 
-//*
+/*
 type <dotnet> "System.UInt32" from "..." as int;
 
 global protocol SH(role P, role R, role C)
