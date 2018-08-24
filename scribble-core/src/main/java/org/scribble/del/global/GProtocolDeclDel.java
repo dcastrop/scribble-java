@@ -16,6 +16,7 @@ package org.scribble.del.global;
 import java.io.File;
 import java.io.IOException;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -308,53 +309,142 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 		String eventualStability = "";
 		for (Role[] p : pairs)
 		{
-			//eventualStability += (((eventualStability.isEmpty()) ? "" : " && ") + "empty_" + p[0] + "_" + p[1]);
-			eventualStability += (((eventualStability.isEmpty()) ? "" : " && ") + "<>empty_" + p[0] + "_" + p[1]);
+			//eventualStability += (((eventualStability.isEmpty()) ? "" : " && ") + "<>empty_" + p[0] + "_" + p[1]);  // "eventual reception", not eventual stability
+			eventualStability += (((eventualStability.isEmpty()) ? "" : " && ") + "empty_" + p[0] + "_" + p[1]);
+					// FIXME: eventual stability too strong -- can be violated by certain interleavings keeping alternate queues non-empty
+					// N.B. "fairness" fixes the above for recursions-with-exits, since exit always eventually taken
 		}
-		//eventualStability = "[]<>(" + eventualStability + ")";
-		eventualStability = "[](" + eventualStability + ")";  // FIXME: current "eventual reception", not eventual stability
-		//clauses.add(eventualStability);
+		//eventualStability = "[](" + eventualStability + ")";
+		eventualStability = "[]<>(" + eventualStability + ")";
+		clauses.add(eventualStability);
 
+		Map<String, String> props = new HashMap<>();
 		//int batchSize = 10;  // FIXME: factor out
-		int batchSize = 6;  // FIXME: factor out  // FIXME: dynamic batch sizing based on previous batch duration?
+		int batchSize = 1;  // FIXME: factor out  // FIXME: dynamic batch sizing based on previous batch duration?
 		for (int i = 0; i < clauses.size(); )
 		{
 			int j = (i+batchSize < clauses.size()) ? i+batchSize : clauses.size();
 			String batch = clauses.subList(i, j).stream().collect(Collectors.joining(" && "));
 			String ltl =
-					  "ltl {\n"
-					+ ((fair && !fairChoices.isEmpty()) ? "(" + fairChoices.stream().map(c -> c.toString()).collect(Collectors.joining(" && ")) + ") ->" : "")  // FIXME: filter by batching? -- optimise batches more "semantically"?
-					+ "\n"
+					  "ltl p" + i + " {\n"
+					+ ((fair && !fairChoices.isEmpty()) ? "(" + fairChoices.stream().map(c -> c.toString()).collect(Collectors.joining(" && ")) + ")\n->\n" : "")  // FIXME: filter by batching? -- optimise batches more "semantically"?
 					+ "(" + batch + ")"
 					+ "\n" + "}";
 			if (job.debug)
 			{
 				System.out.println("[-spin] Batched ltl:\n" + ltl + "\n");
 			}
-			if (!runSpin(fullname.toString(), pml + "\n\n" + ltl))
+			/*if (!runSpin(fullname.toString(), pml + "\n\n" + ltl))
 			{
 				throw new ScribbleException("Protocol not valid:\n" + gpd);
-			}
+			}*/
+
+			props.put("p" + i, ltl);  // Factour out prop name
+
 			i += batchSize;
 		}
 
-		String ltl =
+		/*String ltl =
 					"ltl {\n"
 				+ ((fair && !fairChoices.isEmpty()) ? "(" + fairChoices.stream().map(c -> c.toString()).collect(Collectors.joining(" && ")) + ") ->" : "")  // FIXME: filter by batching? -- optimise batches more "semantically"?
 				+ "\n"
 				+ "(" + eventualStability + ")"
-				+ "\n" + "}";
-		if (job.debug)
+				+ "\n" + "}";*/
+		pml += props.values().stream().map(v -> "\n\n" + v).collect(Collectors.joining(""));
+		/*if (job.debug)
 		{
 			System.out.println("[-spin] Eventual stability:\n" + ltl + "\n");
-		}
-		if (!runSpin(fullname.toString(), pml + "\n\n" + ltl))
+		}*/
+		if (!runSpin(job, fullname.toString(), pml, props.keySet().stream().collect(Collectors.toList())))
 		{
 			throw new ScribbleException("Protocol not valid:\n" + gpd);
 		}
 	}
 
 	// FIXME: move
+	private static boolean runSpin(Job job, String prefix, String pml, List<String> props) //throws ScribbleException
+	{
+		File tmp;
+		try
+		{
+			tmp = File.createTempFile(prefix, ".pml.tmp");
+			try
+			{
+				String tmpName = tmp.getAbsolutePath();				
+				ScribUtil.writeToFile(tmpName, pml);
+				String[] res = ScribUtil.runProcess("spin", "-a", tmpName);
+				res[0] = res[0].replaceAll("(?m)^ltl.*$", "");
+				res[0] = res[0].replaceAll("(?m)\\sthe\\smodel\\scontains.*$", "");  // FIXME HACK
+				res[0] = res[0].replaceAll("(?m)\\sonly\\sone\\sclaim.*$", "");
+				res[0] = res[0].replaceAll("(?m)\\sor\\suse\\se\\.g\\..*$", "");
+				res[0] = res[0].replaceAll("(?m)\\schoose\\swhich\\sone.*$", "");
+				res[1] = res[1].replace("'gcc-4' is not recognized as an internal or external command,\noperable program or batch file.", "");
+				res[1] = res[1].replace("'gcc-3' is not recognized as an internal or external command,\noperable program or batch file.", "");
+				res[0] = res[0].trim();
+				res[1] = res[1].trim();
+				if (!res[0].trim().isEmpty() || !res[1].trim().isEmpty())
+				{
+					//throw new RuntimeException("[scrib] : " + Arrays.toString(res[0].getBytes()) + "\n" + Arrays.toString(res[1].getBytes()));
+					throw new RuntimeException("[-spin] [spin]: " + res[0] + "\n" + res[1]);
+				}
+				int procs = 0;
+				for (int i = 0; i < pml.length(); procs++)
+				{
+					i = pml.indexOf("proctype", i);
+					if (i == -1)
+					{
+						break;
+					}
+					i++;
+				}
+				int dnfair = (procs <= 6) ? 2 : 3;  // FIXME
+				res = ScribUtil.runProcess("gcc", "-o", "pan", "pan.c", "-DNFAIR=" + dnfair);
+				res[0] = res[0].trim();
+				res[1] = res[1].trim();
+				if (!res[0].isEmpty() || !res[1].isEmpty())
+				{
+					throw new RuntimeException("[-spin] [gcc]: " + res[0] + "\n" + res[1]);
+				}
+				for (String prop : props)
+				{
+					if (job.debug)
+					{
+						System.out.println("[-spin] [pan] Verifying " + prop + ":");
+					}
+					res = ScribUtil.runProcess("pan", "-a", "-f", "-N", prop);
+					res[1] = res[1].replace("warning: no accept labels are defined, so option -a has no effect (ignored)", "");
+					res[0] = res[0].trim();
+					res[1] = res[1].trim();
+					if (res[0].contains("error,") || !res[1].isEmpty())
+					{
+						throw new RuntimeException("[-spin] [pan]: " + res[0] + "\n" + res[1]);
+					}
+					int err = res[0].indexOf("errors: ");
+					boolean valid = (res[0].charAt(err + 8) == '0');
+					if (!valid)
+					{
+						System.err.println("[-spin] [pan] " + res[0] + "\n" + res[1]);
+						return false;
+					}
+				}
+				return true;  // All props valid
+			}
+			catch (ScribbleException e)
+			{
+				throw new RuntimeException(e);
+			}
+			finally
+			{
+				tmp.delete();
+			}
+		}
+		catch (IOException e)
+		{
+			throw new RuntimeException(e);
+		}
+	}
+
+	/*// FIXME: move
 	private static boolean runSpin(String prefix, String pml) //throws ScribbleException
 	{
 		File tmp;
@@ -423,6 +513,6 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 		{
 			throw new RuntimeException(e);
 		}
-	}
+	}*/
 }
 

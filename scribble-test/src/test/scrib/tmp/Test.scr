@@ -35,12 +35,30 @@ module tmp.Test;
 
 
 
+/*
 global protocol Proto1(role A, role B, role C)
 {
 	choice at A
 	{
 		m1() from A to B;
-		//m2() from A to C;
+		m2() from B to C;
+		do Proto1(A, B, C);
+	}
+	or
+	{
+		m3() from A to B;
+		m4() from B to C;
+	}
+}
+//*/
+
+/*
+global protocol Proto1(role A, role B, role C)
+{
+	choice at A
+	{
+		m1() from A to B;
+		m2() from A to C;
 		do Proto1(A, B, C);
 	}
 	or
@@ -49,6 +67,7 @@ global protocol Proto1(role A, role B, role C)
 		m4() from A to C;
 	}
 }
+//*/
 
 
 /*
@@ -67,6 +86,68 @@ global protocol Proto1(role A, role B)
 	}* /
 }
 //*/
+
+
+
+
+
+
+
+//*
+type <dotnet> "System.UInt32" from "..." as int;
+
+global protocol SH(role P, role R, role C)
+{
+	plane(int, int, int, int) from P to R;
+	do Loop(P, R, C);
+}
+
+aux global protocol Loop(role P, role R, role C)
+{
+	choice at P
+	{
+		Above(int) from P to R;   
+		Res(int) from R to P;
+		Above(int) from P to R;   
+		Res(int) from R to P;
+		choice at P
+		{
+			BothIn() from P to R;
+			BothIn(int) from P to C;
+			//do Loop(P, R, C);
+		}
+		or
+		{
+			BothOut() from P to R;
+			BothOut() from P to C;
+			//do Loop(P, R, C);
+		}
+		or
+		{
+			Intersect() from P to R;
+			Res(int) from R to P;
+			choice at P
+			{
+				One(int) from P to C;
+				//do Loop(P, R, C);
+			}
+			or
+			{
+				Two(int, int) from P to C;
+				//do Loop(P, R, C);
+			}
+		}
+		do Loop(P, R, C);  // FIXME: -spin fail if commented
+	}
+	or
+	{
+		Close() from P to R;   
+		Close() from P to C;
+	}
+}
+//*/
+
+
 
 
 
@@ -122,61 +203,6 @@ aux global protocol Loop2(role P, role R, role C)
 //*/
 
 
-
-
-/*
-type <dotnet> "System.UInt32" from "..." as int;
-
-global protocol SH(role P, role R, role C)
-{
-	plane(int, int, int, int) from P to R;
-	do Loop(P, R, C);
-}
-
-aux global protocol Loop(role P, role R, role C)
-{
-	choice at P
-	{
-		Above(int) from P to R;   
-		Res(int) from R to P;
-		Above(int) from P to R;   
-		Res(int) from R to P;
-		choice at P
-		{
-			BothIn() from P to R;
-			BothIn(int) from P to C;
-			//do Loop(P, R, C);
-		}
-		or
-		{
-			BothOut() from P to R;
-			BothOut() from P to C;
-			//do Loop(P, R, C);
-		}
-		or
-		{
-			Intersect() from P to R;
-			Res(int) from R to P;
-			choice at P
-			{
-				One(int) from P to C;
-				//do Loop(P, R, C);
-			}
-			or
-			{
-				Two(int, int) from P to C;
-				//do Loop(P, R, C);
-			}
-		}
-		do Loop(P, R, C);  // FIXME: -spin fail if commented
-	}
-	or
-	{
-		Close() from P to R;   
-		Close() from P to C;
-	}
-}
-//*/
 
 
 
