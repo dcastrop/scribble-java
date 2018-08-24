@@ -52,7 +52,7 @@ global protocol Proto1(role A, role B, role C)
 }
 //*/
 
-/*
+//*
 global protocol Proto1(role A, role B, role C)
 {
 	choice at A
@@ -93,7 +93,7 @@ global protocol Proto1(role A, role B)
 
 
 
-//*
+/*
 type <dotnet> "System.UInt32" from "..." as int;
 
 global protocol SH(role P, role R, role C)

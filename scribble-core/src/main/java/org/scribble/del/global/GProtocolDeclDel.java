@@ -227,7 +227,9 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 		//for (Role[] p : (Iterable<Role[]>) () -> pairs.stream().sorted().iterator())
 		for (Role[] p : pairs)
 		{
-			pml += "chan s_" + p[0] + "_" + p[1] + " = [1] of { mtype };\n"
+			pml += "chan s_" + p[0] + "_" + p[1] + " = [1] of { mtype };\n"  
+								// Async queue size 1 even though separate s/r chans, to work with guarded inputs
+								// But this interferes with 1-bounded (2-bounded?), and eventual stability?
 					 + "chan r_" + p[0] + "_" + p[1] + " = [1] of { mtype };\n"
 					 + "bool empty_" + p[0] + "_" + p[1] + " = true;\n"
 					 + "active proctype chan_" + p[0] + "_" + p[1] + "() {\n"
@@ -312,7 +314,7 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 			//eventualStability += (((eventualStability.isEmpty()) ? "" : " && ") + "<>empty_" + p[0] + "_" + p[1]);  // "eventual reception", not eventual stability
 			eventualStability += (((eventualStability.isEmpty()) ? "" : " && ") + "empty_" + p[0] + "_" + p[1]);
 					// FIXME: eventual stability too strong -- can be violated by certain interleavings keeping alternate queues non-empty
-					// N.B. "fairness" fixes the above for recursions-with-exits, since exit always eventually taken
+					// N.B. "fairness" fixes the above for recursions-with-exits, since exit always eventually taken (so, eventual stable termination)
 		}
 		//eventualStability = "[](" + eventualStability + ")";
 		eventualStability = "[]<>(" + eventualStability + ")";
