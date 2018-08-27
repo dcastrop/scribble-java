@@ -47,7 +47,6 @@ import org.scribble.model.MState;
 import org.scribble.model.endpoint.EGraph;
 import org.scribble.model.endpoint.EState;
 import org.scribble.model.endpoint.EStateKind;
-import org.scribble.model.endpoint.actions.EAction;
 import org.scribble.model.global.SGraph;
 import org.scribble.type.kind.Global;
 import org.scribble.type.name.GProtocolName;
@@ -230,9 +229,9 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 			pml += "chan s_" + p[0] + "_" + p[1] + " = [1] of { mtype };\n"  
 								// Async queue size 1 even though separate s/r chans, to work with guarded inputs
 								// But this interferes with 1-bounded (2-bounded?), and eventual stability?
-					 + "chan r_" + p[0] + "_" + p[1] + " = [1] of { mtype };\n"
+					 //+ "chan r_" + p[0] + "_" + p[1] + " = [1] of { mtype };\n"
 					 + "bool empty_" + p[0] + "_" + p[1] + " = true;\n"
-					 + "active proctype chan_" + p[0] + "_" + p[1] + "() {\n"
+					 /*+ "active proctype chan_" + p[0] + "_" + p[1] + "() {\n"
 					 + "mtype m;\n"
 					 + "end_chan_" + p[0] + "_" + p[1] + ":\n"
 					 + "do\n"
@@ -240,7 +239,8 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 					 + "atomic { s_" + p[0] + "_" + p[1] + "?m; empty_" + p[0] + "_" + p[1] + " = false }\n"
 					 + "atomic { r_" + p[0] + "_" + p[1] + "!m; empty_" + p[0] + "_" + p[1] + " = true }\n"
 					 + "od\n"
-					 + "}\n";
+					 + "}\n"*/
+					 ;
 		}
 		
 		for (Role r : rs)
@@ -277,11 +277,11 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 				}
 				if (fair)
 				{
-					List<EAction> as = s.getActions();
-					if (kind == EStateKind.OUTPUT && as.size() > 1)
+					List<EState> ss = s.getSuccessors().stream().distinct().collect(Collectors.toList());
+					if (kind == EStateKind.OUTPUT && ss.size() > 1)  // FIXME: broken for multiple actions to same successor, e.g., rec X { A->B.X + A->C.X }
 					{
 						fairChoices.add("([]<>" + r + "@" + getPmlLabel(r, s) + " -> [](" 
-								+ s.getSuccessors().stream().distinct().map(succ -> "<>" + r + "@" + getPmlLabel(r, succ)).collect(Collectors.joining(" && "))
+								+ ss.stream().map(succ -> "<>" + r + "@" + getPmlLabel(r, succ)).collect(Collectors.joining(" && "))
 								+ "))");  // FIXME: factor out label
 					}
 				}
@@ -311,13 +311,13 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 		String eventualStability = "";
 		for (Role[] p : pairs)
 		{
-			//eventualStability += (((eventualStability.isEmpty()) ? "" : " && ") + "<>empty_" + p[0] + "_" + p[1]);  // "eventual reception", not eventual stability
-			eventualStability += (((eventualStability.isEmpty()) ? "" : " && ") + "empty_" + p[0] + "_" + p[1]);
+			eventualStability += (((eventualStability.isEmpty()) ? "" : " && ") + "<>empty_" + p[0] + "_" + p[1]);  // "eventual reception", not eventual stability
+			//eventualStability += (((eventualStability.isEmpty()) ? "" : " && ") + "empty_" + p[0] + "_" + p[1]);
 					// FIXME: eventual stability too strong -- can be violated by certain interleavings keeping alternate queues non-empty
 					// N.B. "fairness" fixes the above for recursions-with-exits, since exit always eventually taken (so, eventual stable termination)
 		}
-		//eventualStability = "[](" + eventualStability + ")";
-		eventualStability = "[]<>(" + eventualStability + ")";
+		eventualStability = "[](" + eventualStability + ")";
+		//eventualStability = "[]<>(" + eventualStability + ")";
 		clauses.add(eventualStability);
 
 		Map<String, String> props = new HashMap<>();

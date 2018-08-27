@@ -75,9 +75,10 @@ public class EState extends MPrettyState<RecVar, EAction, EState, Local>
 					  "if\n"
 					+ as.stream().map(a ->
 							  "::\n"
-							+ "skip ->\n"
-							//+ "nfull(s_" + r + "_" + a.peer + ")\n"  // CHECKME
-							+ "s_" + r + "_" + a.peer + "!" + a.mid + ";\n"
+							////+ "nfull(s_" + r + "_" + a.peer + ")\n"  // CHECKME
+							+ "skip ->\n"  // Better than nfull because models commitment of process to local decision agnostically of 1-boundedness?
+							//+ "s_" + r + "_" + a.peer + "!" + a.mid + ";\n"
+							+ "atomic { s_" + r + "_" + a.peer + "!" + a.mid + "; empty_" + r + "_" + a.peer + " = false }\n"
 							+ "goto " + getLabel(seen, getSuccessor(a), r) + "\n"
 						)
 						.collect(Collectors.joining(""))
@@ -89,8 +90,11 @@ public class EState extends MPrettyState<RecVar, EAction, EState, Local>
 					  "if\n"
 					+ as.stream().map(a ->
 							  "::\n"
-							+ "r_" + a.peer + "_" + r + "?[" + a.mid + "] ->\n"
-							+ "r_" + a.peer + "_" + r + "?" + a.mid + ";\n"
+							// Guard check and actual receive not atomic, but fine because binary chans are race-free
+							/*+ "r_" + a.peer + "_" + r + "?[" + a.mid + "] ->\n"
+							+ "r_" + a.peer + "_" + r + "?" + a.mid + ";\n"*/
+							+ "s_" + a.peer + "_" + r + "?[" + a.mid + "] ->\n"
+							+ "atomic { s_" + a.peer + "_" + r + "?" + a.mid + "; empty_" + a.peer + "_" + r + " = true }\n"
 							+ "goto " + getLabel(seen, getSuccessor(a), r) + "\n"
 						)
 						.collect(Collectors.joining("")) 
