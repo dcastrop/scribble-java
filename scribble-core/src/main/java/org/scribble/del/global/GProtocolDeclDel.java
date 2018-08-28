@@ -189,9 +189,6 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 				? "end" + r + s.id
 				: "label" + r + s.id;
 	}
-	
-	// HERE split termination-fairnss and non-terminating-fairness -- for non-terminating-fairness, look for "recursion-entry" states to terminal sets and only do fairness on there?  will be faster except for nested and fat recursive-choices
-	// eventual reception (for non-terminating-fairness) -- use batching, sound to batch by distribution-law for implies
 		
 	private static void validateBySpin(Job job, GProtocolName fullname, boolean fair) throws ScribbleException
 	{
@@ -246,12 +243,12 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 					 ;
 		}
 		
-		Map<Role, EGraph> egraphs = new HashMap<>();
+		Map<Role, EGraph> gs = new HashMap<>();
 		//rs.forEach(r -> egraphs.put(r, jc.getEGraph(fullname, r)));  // getEGraph throws exception
 		for (Role r : rs)
 		{
 			EGraph g = jc.getEGraph(fullname, r);
-			egraphs.put(r, g);
+			gs.put(r, g);
 			pml += "\n\n" + g.toPml(r);
 			if (job.debug)
 			{
@@ -259,8 +256,115 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 			}
 		}
 		
+	// FIXME split termination-fairness and non-terminating-fairness
+		boolean termFair = gs.values().stream().allMatch(g -> g.isTermFair());
+		if (fair)
+		{
+			if (termFair)
+			{
+				validateBySpinTermFair(job, fullname, gpd, rs, pairs, pml, true);
+			}
+			else
+			{
+				validateBySpinNonTermFair(job, fullname, gpd, rs, pairs, pml, true);
+			}
+		}
+		else
+		{
+			validateBySpinNonTermFair(job, fullname, gpd, rs, pairs, pml, false);
+		}
+	}
+
+	
+	private static void validateBySpinTermFair(Job job, GProtocolName fullname, GProtocolDecl gpd,
+			List<Role> rs, List<Role[]> pairs, String pml, boolean fair) throws ScribbleException
+	{
+		JobContext jc = job.getContext();
+
+		List<String> fairChoices = new LinkedList<>();  // Poly-output only
+		List<String> clauses = new LinkedList<>();
+		for (Role r : rs)
+		{
+
+			// FIXME: factor out with above
+			Set<EState> tmp = new HashSet<>();
+			EGraph g = jc.getEGraph(fullname, r);
+			tmp.add(g.init);
+			tmp.addAll(MState.getReachableStates(g.init));
+
+			if (g.term != null)
+			{
+				clauses.add(r + "@" + getPmlLabel(r, g.term));
+				tmp.remove(g.term);
+			}
+			tmp.forEach(s ->  // Throws exception, cannot use flatMap
+			{
+				EStateKind kind = s.getStateKind();
+				if (kind == EStateKind.UNARY_INPUT || kind == EStateKind.POLY_INPUT)  // FIXME: include outputs due to bounded model?  or subsumed by eventual stability
+				{
+					//clauses.add("!<>[]" + r + "@" + getPmlLabel(r, s));  // FIXME: factor out label
+				}
+				else if (kind != EStateKind.OUTPUT && kind != EStateKind.TERMINAL)
+				{
+					throw new RuntimeException("[-spin] TODO: " + kind);
+				}
+				if (fair && !s.getLabels().isEmpty())  // CHECKME: looking for recursion "entry" states
+				{
+					List<EState> ss = s.getSuccessors().stream().distinct().collect(Collectors.toList());
+					if (kind == EStateKind.OUTPUT && ss.size() > 1)  // Latter clause redundant for fair-term?
+					{
+						fairChoices.add("!" + r + "@" + getPmlLabel(r, s));  // FIXME: factor out label
+					}
+				}
+			});
+		}
+		String eventualStability = "";
+		for (Role[] p : pairs)
+		{
+			eventualStability += (((eventualStability.isEmpty()) ? "" : " && ") + "empty_" + p[0] + "_" + p[1]);  // "eventual reception", not eventual stability
+					// FIXME: eventual stability too strong -- can be violated by certain interleavings keeping alternate queues non-empty
+					// N.B. "fairness" fixes the above for recursions-with-exits, since exit always eventually taken (so, eventual stable termination)
+		}
+		eventualStability = "[](" + eventualStability + ")";
+		clauses.add(eventualStability);
+
+		Map<String, String> props = new HashMap<>();
+		//int batchSize = 10;  // FIXME: factor out
+		int batchSize = 100;  // FIXME: factor out  // FIXME: dynamic batch sizing based on previous batch duration?
+		for (int i = 0; i < clauses.size(); )
+		{
+			int j = (i+batchSize < clauses.size()) ? i+batchSize : clauses.size();
+			String batch = "<>[](" + clauses.subList(i, j).stream().collect(Collectors.joining(" && ")) + ")";
+			String ltl =
+					  "ltl p" + i + " {\n"
+					+ ((fair && !fairChoices.isEmpty()) ? "<>[](" + fairChoices.stream().map(c -> c.toString()).collect(Collectors.joining(" && ")) + ")\n->\n" : "")  // FIXME: filter by batching? -- optimise batches more "semantically"?
+					+ "(" + batch + ")"
+					+ "\n" + "}";
+			if (job.debug)
+			{
+				System.out.println("[-spin] Batched ltl:\n" + ltl + "\n");
+			}
+
+			props.put("p" + i, ltl);  // Factour out prop name
+
+			i += batchSize;
+		}
+
+		pml += props.values().stream().map(v -> "\n\n" + v).collect(Collectors.joining(""));
+		if (!runSpin(job, fullname.toString(), pml, props.keySet().stream().collect(Collectors.toList())))
+		{
+			throw new ScribbleException("Protocol not valid:\n" + gpd);
+		}
+	}
 		
-		
+	// for non-terminating-fairness, look for "recursion-entry" states to terminal sets and only do fairness on there?  will be faster except for nested and fat recursive-choices
+	// FIXME: above needs restricting to such cases; "offset" recursive-choices are possible e.g., rec X { ...; ( A->B.X + A->B.end ) } -- no: should be OK?  only need to detect fairness via any action in each choice path, not necessarily the "entry" action)
+	// eventual reception (for non-terminating-fairness) -- use batching, sound to batch by distribution-law for implies
+	private static void validateBySpinNonTermFair(Job job, GProtocolName fullname, GProtocolDecl gpd,
+			List<Role> rs, List<Role[]> pairs, String pml, boolean fair) throws ScribbleException
+	{
+		JobContext jc = job.getContext();
+
 		List<String> fairChoices = new LinkedList<>();  // Poly-output only
 		List<String> clauses = new LinkedList<>();
 		for (Role r : rs)
@@ -396,7 +500,7 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 				if (!res[0].trim().isEmpty() || !res[1].trim().isEmpty())
 				{
 					//throw new RuntimeException("[scrib] : " + Arrays.toString(res[0].getBytes()) + "\n" + Arrays.toString(res[1].getBytes()));
-					throw new RuntimeException("[-spin] [spin]: " + res[0] + "\n" + res[1]);
+					throw new RuntimeException("[-spin] [spin]: " + res[0] + "\n\n" + res[1]);
 				}
 				int procs = 0;
 				for (int i = 0; i < pml.length(); procs++)
@@ -414,7 +518,7 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 				res[1] = res[1].trim();
 				if (!res[0].isEmpty() || !res[1].isEmpty())
 				{
-					throw new RuntimeException("[-spin] [gcc]: " + res[0] + "\n" + res[1]);
+					throw new RuntimeException("[-spin] [gcc]: " + res[0] + "\n\n" + res[1]);
 				}
 				for (String prop : props)
 				{
@@ -424,17 +528,18 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 					}
 					res = ScribUtil.runProcess("pan", "-a", "-f", "-N", prop);
 					res[1] = res[1].replace("warning: no accept labels are defined, so option -a has no effect (ignored)", "");
+					res[1] = res[1].replace("warning: only one claim defined, -N ignored", "");
 					res[0] = res[0].trim();
 					res[1] = res[1].trim();
 					if (res[0].contains("error,") || !res[1].isEmpty())
 					{
-						throw new RuntimeException("[-spin] [pan]: " + res[0] + "\n" + res[1]);
+						throw new RuntimeException("[-spin] [pan]: " + res[0] + "\n\n" + res[1]);
 					}
 					int err = res[0].indexOf("errors: ");
 					boolean valid = (res[0].charAt(err + 8) == '0');
 					if (!valid)
 					{
-						System.err.println("[-spin] [pan] " + res[0] + "\n" + res[1]);
+						System.err.println("[-spin] [pan] " + res[0] + "\n\n" + res[1]);
 						return false;
 					}
 				}

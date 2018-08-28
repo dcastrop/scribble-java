@@ -15,12 +15,8 @@ package org.scribble.model.global;
 
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
 
 import org.scribble.model.MGraph;
 import org.scribble.model.global.actions.SAction;
@@ -64,7 +60,7 @@ public class SGraph extends MGraph<Void, SAction, SState, Global> //implements M
 
 		Set<Set<Integer>> termSets = new HashSet<>();
 		Set<Set<Integer>> checked = new HashSet<>();
-		for (Integer i : reach.keySet())
+		for (Integer i : this.reach.keySet())
 		{
 			SState s = this.states.get(i);
 			Set<Integer> rs = this.reach.get(s.id);
@@ -100,145 +96,9 @@ public class SGraph extends MGraph<Void, SAction, SState, Global> //implements M
 	// state is error
 	public List<SAction> getTrace(SState start, SState end)
 	{
-		SortedMap<Integer, Set<Integer>> candidates = new TreeMap<>();
-		Set<Integer> dis0 = new HashSet<Integer>();
-		dis0.add(start.id);
-		candidates.put(0, dis0);
-
-		Set<Integer> seen = new HashSet<>();
-		seen.add(start.id);
-
-		return getTraceAux(new LinkedList<>(), seen, candidates, end);
+		return getPath(start, end);
 	}
 
-	// Djikstra's
-	private List<SAction> getTraceAux(List<SAction> trace, Set<Integer> seen,
-			SortedMap<Integer, Set<Integer>> candidates, SState end)
-	{
-		Integer dis = candidates.keySet().iterator().next();
-		Set<Integer> cs = candidates.get(dis);
-		Iterator<Integer> it = cs.iterator();
-		Integer currid = it.next();
-		it.remove();
-		if (cs.isEmpty())
-		{
-			candidates.remove(dis);
-		}
-
-		SState curr = this.states.get(currid);
-		Iterator<SAction> as = curr.getAllActions().iterator();
-		Iterator<SState> ss = curr.getAllSuccessors().iterator();
-		while (as.hasNext())
-		{
-			SAction a = as.next();
-			SState s = ss.next();
-			if (s.id == end.id)
-			{
-				trace.add(a);
-				return trace;
-			}
-
-			if (!seen.contains(s.id) && this.reach.containsKey(s.id)
-					&& this.reach.get(s.id).contains(end.id))
-			{
-				seen.add(s.id);
-				Set<Integer> tmp1 = candidates.get(dis + 1);
-				if (tmp1 == null)
-				{
-					tmp1 = new HashSet<>();
-					candidates.put(dis + 1, tmp1);
-				}
-				tmp1.add(s.id);
-				List<SAction> tmp2 = new LinkedList<>(trace);
-				tmp2.add(a);
-				List<SAction> res = getTraceAux(tmp2, seen, candidates, end);
-				if (res != null)
-				{
-					return res;
-				}
-			}
-		}
-		return null;
-	}
-
-	/*// Not reflexive
-	public Map<Integer, Set<Integer>> getReachabilityMap()
-	{
-		if (this.reach != null)
-		{
-			return this.reach;
-		}
-
-		Map<Integer, Integer> idToIndex = new HashMap<>(); // state ID -> array index
-		Map<Integer, Integer> indexToId = new HashMap<>(); // array index -> state ID
-		int i = 0;
-		for (SState s : this.states.values())
-		{
-			idToIndex.put(s.id, i);
-			indexToId.put(i, s.id);
-			i++;
-		}
-		this.reach = getReachabilityAux(idToIndex, indexToId);
-
-		return this.reach;
-	}
-
-	private Map<Integer, Set<Integer>> getReachabilityAux(
-			Map<Integer, Integer> idToIndex, Map<Integer, Integer> indexToId)
-	{
-		int size = idToIndex.keySet().size();
-		boolean[][] reach = new boolean[size][size];
-
-		for (Integer s1id : idToIndex.keySet())
-		{
-			for (SState s2 : this.states.get(s1id).getAllSuccessors())
-			{
-				reach[idToIndex.get(s1id)][idToIndex.get(s2.id)] = true;
-			}
-		}
-
-		for (boolean again = true; again;)
-		{
-			again = false;
-			for (int i = 0; i < size; i++)
-			{
-				for (int j = 0; j < size; j++)
-				{
-					if (reach[i][j])
-					{
-						for (int k = 0; k < size; k++)
-						{
-							if (reach[j][k] && !reach[i][k])
-							{
-								reach[i][k] = true;
-								again = true;
-							}
-						}
-					}
-				}
-			}
-		}
-
-		Map<Integer, Set<Integer>> res = new HashMap<>();
-		for (int i = 0; i < size; i++)
-		{
-			Set<Integer> tmp = res.get(indexToId.get(i));
-			for (int j = 0; j < size; j++)
-			{
-				if (reach[i][j])
-				{
-					if (tmp == null)
-					{
-						tmp = new HashSet<>();
-						res.put(indexToId.get(i), tmp);
-					}
-					tmp.add(indexToId.get(j));
-				}
-			}
-		}
-
-		return Collections.unmodifiableMap(res);
-	}*/
 
 	/*@Override
 	public String toDot()

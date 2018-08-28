@@ -62,6 +62,8 @@ public class SGraphBuilderUtil extends GraphBuilderUtil<Void, SAction, SState, G
 		return this.sf.newSConfig(efsms, b0);
 	}
 	
+	// FIXME: optimisation: build reachability-matrix during this construction?
+	//
 	// Factory method: not fully integrated with SGraph constructor because of Job arg (debug printing)
 	// Also checks for non-deterministic payloads
 	// Maybe refactor into an SGraph builder util; cf., EGraphBuilderUtil -- but not Visitor-based building (cf. EndpointGraphBuilder), this isn't an AST algorithm

@@ -33,6 +33,12 @@ public class EGraph extends MGraph<RecVar, EAction, EState, Local> //implements 
 		super(init);
 		this.term = MState.getTerminal(init);
 	}
+	
+	public boolean isTermFair()
+	{
+		return this.reach.entrySet().stream().allMatch(e -> 
+				e.getKey() != this.term.id && e.getValue().contains(this.term.id));
+	}
 
 	public EFSM toFsm()
 	{
