@@ -11,43 +11,47 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-package org.scribble.model.global;
+package org.scribble.model;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-import org.scribble.model.MGraph;
-import org.scribble.model.global.actions.SAction;
-import org.scribble.type.kind.Global;
-import org.scribble.type.name.GProtocolName;
+import org.scribble.type.kind.ProtocolKind;
 
-public class SGraph extends MGraph<Void, SAction, SState, Global> //implements MPrettyPrint
+abstract public class MGraph
+		<
+		L,                             // Node label type (cosmetic)
+		A extends MAction<K>,          // Edge type
+		S extends MPrettyState<L, A, S, K>,  // State type
+		K extends ProtocolKind         // Global/Local
+		>
+		implements MPrettyPrint
 {
-	public final GProtocolName proto;
-	//private final Map<Role, EGraph> efsms;
-	//private final boolean fair;
+	//public final GProtocolName proto;
 	
-	/*public final SState init;
-	public Map<Integer, SState> states; // State ID -> GMState
+	public Map<Integer, S> states; // State ID -> GMState
+	public final S init;
+	//public final EState term;  // No -- SGraphs for bad protocols may have multiple terminals
 
-	private Map<Integer, Set<Integer>> reach; // State ID -> reachable states (not reflexive)*/
-	private Set<Set<Integer>> termSets;
+	protected Map<Integer, Set<Integer>> reach; // State ID -> reachable states (not reflexive)
+	//private Set<Set<Integer>> termSets;
 
 	// Unlike EState, SGraph is not just a "simple wrapper" for an existing graph of nodes -- it is a "semantic structure" that needs to be fully built properly (so no arbitrary "toGraph" method; cf., EState)
-	//protected SGraph(GProtocolName proto, Map<Integer, SState> states, SState init)
-	protected SGraph(GProtocolName proto, SState init)
+	//protected MGraph(GProtocolName proto, Map<Integer, S> states, S init)
+	//protected MGraph(GProtocolName proto, S init)
+	protected MGraph(S init)
 	{
-		super(init);
-		this.proto = proto;
-		/*this.init = init;
-		this.states = Collections.unmodifiableMap(states);
-		this.reach = getReachabilityMap();*/
+		//this.proto = proto;
+		Set<S> rs = Stream.of(init).collect(Collectors.toSet()); 
+		rs.addAll(MState.getReachableStates(init));
+		this.states = rs.stream().collect(Collectors.toMap(s -> s.id, s -> s));
+		this.init = init;
+		this.reach = getReachabilityMap();
 	}
 	
 	/*public SModel toModel()
@@ -55,7 +59,7 @@ public class SGraph extends MGraph<Void, SAction, SState, Global> //implements M
 		return new SModel(this);
 	}*/
 
-	public Set<Set<Integer>> getTerminalSets()
+	/*public Set<Set<Integer>> getTerminalSets()
 	{
 		if (this.termSets != null)
 		{
@@ -159,12 +163,12 @@ public class SGraph extends MGraph<Void, SAction, SState, Global> //implements M
 			}
 		}
 		return null;
-	}
+	}*/
 
-	/*// Not reflexive
-	public Map<Integer, Set<Integer>> getReachabilityMap()
+	// Not reflexive
+	protected Map<Integer, Set<Integer>> getReachabilityMap()
 	{
-		if (this.reach != null)
+		if (this.reach != null)  // Now redundant, set by constructor
 		{
 			return this.reach;
 		}
@@ -172,7 +176,7 @@ public class SGraph extends MGraph<Void, SAction, SState, Global> //implements M
 		Map<Integer, Integer> idToIndex = new HashMap<>(); // state ID -> array index
 		Map<Integer, Integer> indexToId = new HashMap<>(); // array index -> state ID
 		int i = 0;
-		for (SState s : this.states.values())
+		for (S s : this.states.values())
 		{
 			idToIndex.put(s.id, i);
 			indexToId.put(i, s.id);
@@ -191,7 +195,7 @@ public class SGraph extends MGraph<Void, SAction, SState, Global> //implements M
 
 		for (Integer s1id : idToIndex.keySet())
 		{
-			for (SState s2 : this.states.get(s1id).getAllSuccessors())
+			for (S s2 : this.states.get(s1id).getAllSuccessors())
 			{
 				reach[idToIndex.get(s1id)][idToIndex.get(s2.id)] = true;
 			}
@@ -238,9 +242,9 @@ public class SGraph extends MGraph<Void, SAction, SState, Global> //implements M
 		}
 
 		return Collections.unmodifiableMap(res);
-	}*/
+	}
 
-	/*@Override
+	@Override
 	public String toDot()
 	{
 		return this.init.toDot();
@@ -256,5 +260,5 @@ public class SGraph extends MGraph<Void, SAction, SState, Global> //implements M
 	public String toString()
 	{
 		return this.init.toString();
-	}*/
+	}
 }

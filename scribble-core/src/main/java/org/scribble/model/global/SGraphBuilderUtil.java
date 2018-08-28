@@ -77,7 +77,7 @@ public class SGraphBuilderUtil extends GraphBuilderUtil<Void, SAction, SState, G
 
 		SState init = job.sf.newSState(c0);
 
-		Map<Integer, SState> seen = new HashMap<>();
+		Map<Integer, SState> seen = new HashMap<>();  // key = val.id
 		LinkedHashSet<SState> todo = new LinkedHashSet<>();
 		todo.add(init);
 

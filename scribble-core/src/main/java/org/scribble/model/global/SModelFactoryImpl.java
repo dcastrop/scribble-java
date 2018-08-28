@@ -88,7 +88,8 @@ public class SModelFactoryImpl implements SModelFactory
 	@Override
 	public SGraph newSGraph(GProtocolName proto, Map<Integer, SState> states, SState init)
 	{
-		return new SGraph(proto, states, init);
+		return //new SGraph(proto, states, init);
+				new SGraph(proto, init);  // FIXME?  we have states map, but MGraph constructor currently just takes init and rebuilds the map
 	}
 
 	@Override

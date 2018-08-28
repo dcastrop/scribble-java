@@ -385,7 +385,8 @@ public class EGraphBuilderUtil extends GraphBuilderUtil<RecVar, EAction, EState,
 		EndpointState dfa = determinise(all, res, resTerm);
 		System.out.println("111: " + dfa.toDot());*/
 		
-		return new EGraph(res, resTerm);
+		return //new EGraph(res, resTerm);
+				new EGraph(res);
 	}
 	
 	// FIXME: incomplete -- won't fully correctly handle situations involving, e.g., transitive continue-edge fixing?

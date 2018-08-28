@@ -13,19 +13,25 @@
  */
 package org.scribble.model.endpoint;
 
-import org.scribble.model.MPrettyPrint;
+import org.scribble.model.MGraph;
+import org.scribble.model.MState;
+import org.scribble.model.endpoint.actions.EAction;
+import org.scribble.type.kind.Local;
+import org.scribble.type.name.RecVar;
 import org.scribble.type.name.Role;
 
-public class EGraph implements MPrettyPrint
+public class EGraph extends MGraph<RecVar, EAction, EState, Local> //implements MPrettyPrint
 {
-	public final EState init;
+	//public final EState init;
 	public final EState term;
 
 	//protected EGraph(EState init, EState term)
-	public EGraph(EState init, EState term)
+	public EGraph(EState init)
 	{
-		this.init = init;
-		this.term = term;
+		/*this.init = init;
+		this.term = term;*/
+		super(init);
+		this.term = MState.getTerminal(init);
 	}
 
 	public EFSM toFsm()
@@ -38,7 +44,7 @@ public class EGraph implements MPrettyPrint
 		return this.init.toPml(r);
 	}
 
-	@Override
+	/*@Override
 	public String toAut()
 	{
 		return this.init.toAut();
@@ -49,6 +55,12 @@ public class EGraph implements MPrettyPrint
 	{
 		return this.init.toDot();
 	}
+
+	@Override
+	public String toString()
+	{
+		return this.init.toString();
+	}*/
 	
 	@Override
 	public final int hashCode()
@@ -71,11 +83,5 @@ public class EGraph implements MPrettyPrint
 		}
 		EGraph them = (EGraph) o;
 		return this.init.equals(them.init);// && this.term.equals(them.term);  // N.B. EState.equals checks state ID only, but OK because EStates have globally unique IDs -- any need to do a proper graph equality?
-	}
-
-	@Override
-	public String toString()
-	{
-		return this.init.toString();
 	}
 }

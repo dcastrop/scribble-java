@@ -159,7 +159,8 @@ public class AutParser
 			}
 		}
 		//return builder.finalise();
-		return new EGraph(util.getEntry(), util.getExit());
+		return //new EGraph(util.getEntry(), util.getExit());
+				new EGraph(util.getEntry());
 	}
 	
 	// Cf. getCommSymbol of IOActions

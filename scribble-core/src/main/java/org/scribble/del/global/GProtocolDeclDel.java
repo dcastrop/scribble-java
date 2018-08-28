@@ -189,6 +189,9 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 				? "end" + r + s.id
 				: "label" + r + s.id;
 	}
+	
+	// HERE split termination-fairnss and non-terminating-fairness -- for non-terminating-fairness, look for "recursion-entry" states to terminal sets and only do fairness on there?  will be faster except for nested and fat recursive-choices
+	// eventual reception (for non-terminating-fairness) -- use batching, sound to batch by distribution-law for implies
 		
 	private static void validateBySpin(Job job, GProtocolName fullname, boolean fair) throws ScribbleException
 	{
@@ -243,14 +246,20 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 					 ;
 		}
 		
+		Map<Role, EGraph> egraphs = new HashMap<>();
+		//rs.forEach(r -> egraphs.put(r, jc.getEGraph(fullname, r)));  // getEGraph throws exception
 		for (Role r : rs)
 		{
-			pml += "\n\n" + jc.getEGraph(fullname, r).toPml(r);
+			EGraph g = jc.getEGraph(fullname, r);
+			egraphs.put(r, g);
+			pml += "\n\n" + g.toPml(r);
+			if (job.debug)
+			{
+				System.out.println("[-spin]: Promela processes\n" + pml + "\n");
+			}
 		}
-		if (job.debug)
-		{
-			System.out.println("[-spin]: Promela processes\n" + pml + "\n");
-		}
+		
+		
 		
 		List<String> fairChoices = new LinkedList<>();  // Poly-output only
 		List<String> clauses = new LinkedList<>();
