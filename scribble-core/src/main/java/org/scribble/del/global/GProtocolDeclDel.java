@@ -22,6 +22,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -47,6 +48,7 @@ import org.scribble.model.MState;
 import org.scribble.model.endpoint.EGraph;
 import org.scribble.model.endpoint.EState;
 import org.scribble.model.endpoint.EStateKind;
+import org.scribble.model.endpoint.actions.EAction;
 import org.scribble.model.global.SGraph;
 import org.scribble.type.kind.Global;
 import org.scribble.type.name.GProtocolName;
@@ -384,6 +386,7 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 				if (kind == EStateKind.UNARY_INPUT || kind == EStateKind.POLY_INPUT)  // FIXME: include outputs due to bounded model?  or subsumed by eventual stability
 				{
 					clauses.add("<>!" + r + "@" + getPmlLabel(r, s));  // [] will be added to whole batch  // FIXME: factor out label
+							// FIXME: refine clause by whether state is fair+end-reachable, or otherwise (e.g., term set)?
 				}
 				else if (kind != EStateKind.OUTPUT && kind != EStateKind.TERMINAL)
 				{
@@ -391,12 +394,18 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 				}
 				if (fair)
 				{
-					List<EState> ss = s.getSuccessors().stream().distinct().collect(Collectors.toList());
-					if (kind == EStateKind.OUTPUT && ss.size() > 1)  // FIXME: broken for multiple actions to same successor, e.g., rec X { A->B.X + A->C.X }
+					if (!s.getLabels().isEmpty() && kind == EStateKind.OUTPUT && s.isTermSetEntry())  // Includes #succs == 1, e.g., rec X { a1 . ( a2.X + a3.X ) }
 					{
-						fairChoices.add("([]<>" + r + "@" + getPmlLabel(r, s) + " -> [](" 
-								+ ss.stream().map(succ -> "<>" + r + "@" + getPmlLabel(r, succ)).collect(Collectors.joining(" && "))
-								+ "))");  // FIXME: factor out label
+						List<List<EAction>> ps = g.getAllPaths(s, s);
+						if (ps.size() > 1)
+						{
+							String fc = "[]<>" + r + "@" + getPmlLabel(r, s) + " -> (";
+							Function<List<EAction>, EAction> f = p ->
+									p.stream().filter(a -> ps.stream().filter(pp -> !p.equals(pp)).allMatch(pp -> !pp.contains(a))).findAny().get();
+							fc += ps.stream().map(p -> "<>" + r + "@" + getPmlLabel(r, s.getSuccessor(f.apply(p)))).collect(Collectors.joining(" && "));
+							fc += ")";
+							fairChoices.add(fc);
+						}
 					}
 				}
 			});
@@ -431,6 +440,8 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 					// N.B. "fairness" fixes the above for recursions-with-exits, since exit always eventually taken (so, eventual stable termination)*/
 			String eventualReception = "<>empty_" + p[0] + "_" + p[1];  // [] will be added to whole batch
 			clauses.add(eventualReception);
+					// N.B. "LTL eventual-reception" not technically comparable to "CTL eventual-stability"?  but OK for MPST safety/prog
+					// CHECKME: model could be restricted to support eventual stability with extra conditions, e.g., "eager" eating? -- cf. compat side conditions
 		}
 		/*eventualStability = "[](" + eventualStability + ")";
 		//eventualStability = "[]<>(" + eventualStability + ")";
@@ -438,9 +449,10 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 
 		Map<String, String> props = new HashMap<>();
 		//int batchSize = 10;  // FIXME: factor out
-		int batchSize = 2;  // FIXME: factor out  
+		int batchSize = 1;  // FIXME: factor out  
 				// FIXME: dynamic batch sizing based on previous batch duration?  
-				// CHECKME: batching better for error reporting?  (batchSize=1 best?)
+				// CHECKME: batching better for error reporting?  (batchSize=1 best?) -- and parallelisation
+				// FIXME: batching should be rewritten, e.g., from [](<>!B@labelB13 && <>(!!)empty_C_B) to !<>[](B@labelB13 || !empty_C_B) ?
 		for (int i = 0, k = 1; i < clauses.size(); k++)
 		{
 			int j = (i+batchSize < clauses.size()) ? i+batchSize : clauses.size();

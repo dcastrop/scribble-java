@@ -248,6 +248,29 @@ abstract public class MGraph
 
 		return Collections.unmodifiableMap(res);
 	}
+	
+	// Must work for start.id == end.id (i.e., cycles, not "empty path")
+	public List<List<A>> getAllPaths(S start, S end)
+	{
+		List<List<A>> res = new LinkedList<>();
+		for (A a : start.getAllActions())
+		{
+			S succ = start.getSuccessor(a);
+			if (succ.id == end.id)
+			{
+				res.add(Stream.of(a).collect(Collectors.toList()));
+			}
+			else if (this.reach.get(succ).contains(end))
+			{
+				for (List<A> p : getAllPaths(succ, end))
+				{
+					p.add(0, a);
+					res.add(p);
+				}
+			}
+		}
+		return res;
+	}
 
 	public List<A> getPath(S start, S end)
 	{

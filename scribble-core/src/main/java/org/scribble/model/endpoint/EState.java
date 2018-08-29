@@ -39,6 +39,14 @@ public class EState extends MPrettyState<RecVar, EAction, EState, Local>
 	{
 		super(labs);
 	}
+
+	// W.r.t. "local term set", not "global" -- A -> B; rec X { A -> C.X } ?
+	// CHECKME: factor up?  // cf., isTerminal
+	public boolean isTermSetEntry()
+	{
+		Set<EState> reach = MState.getReachableStates(this);
+		return reach.stream().allMatch(s -> MState.getReachableStates(s).contains(this));
+	}
 	
 	public String toPml(Role r)
 	{
