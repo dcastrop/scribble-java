@@ -48,16 +48,16 @@ public class EState extends MPrettyState<RecVar, EAction, EState, Local>
 		return reach.stream().allMatch(s -> MState.getReachableStates(s).contains(this));
 	}
 	
-	public String toPml(Role r)
+	public String toPml(Role r, Map<Integer, List<EAction>> fairAndNonTermFairActions)
 	{
 		Map<Integer, String> seen = new HashMap<>();
 		return 
 				  "active proctype " + r + "() {\n"
-				+ toPml(seen, r) + "\n"
+				+ toPml(seen, r, fairAndNonTermFairActions) + "\n"
 				+ "}\n";
 	}
 	
-	protected String toPml(Map<Integer, String> seen, Role r)
+	protected String toPml(Map<Integer, String> seen, Role r, Map<Integer, List<EAction>> fairAndNonTermFairActions)
 	{
 		if (seen.containsKey(this.id))
 		{
@@ -86,7 +86,14 @@ public class EState extends MPrettyState<RecVar, EAction, EState, Local>
 							////+ "nfull(s_" + r + "_" + a.peer + ")\n"  // CHECKME
 							+ "skip ->\n"  // Better than nfull because models commitment of process to local decision agnostically of 1-boundedness?
 							//+ "s_" + r + "_" + a.peer + "!" + a.mid + ";\n"
-							+ "atomic { s_" + r + "_" + a.peer + "!" + a.mid + "; empty_" + r + "_" + a.peer + " = false }\n"
+							+ "atomic { s_" + r + "_" + a.peer + "!" + a.mid + "; "
+									+ (fairAndNonTermFairActions.containsKey(this.id)  // FIXME: factor out
+												? r.toString() + this.id + "_" + a.mid + " = true; "
+													+ as.stream().filter(aa -> !a.equals(aa)).map(aa -> r.toString() + this.id + "_" + a.mid + " = false; ").collect(Collectors.joining(""))
+															// FIXME: factor out label
+												: "") 
+									+ "empty_" + r + "_" + a.peer + " = false }\n"
+									// FIXME: factor out empty flags with GProtocolDeclDel#validateBySpin
 							+ "goto " + getLabel(seen, getSuccessor(a), r) + "\n"
 						)
 						.collect(Collectors.joining(""))
@@ -103,6 +110,7 @@ public class EState extends MPrettyState<RecVar, EAction, EState, Local>
 							+ "r_" + a.peer + "_" + r + "?" + a.mid + ";\n"*/
 							+ "s_" + a.peer + "_" + r + "?[" + a.mid + "] ->\n"
 							+ "atomic { s_" + a.peer + "_" + r + "?" + a.mid + "; empty_" + a.peer + "_" + r + " = true }\n"
+									// FIXME: factor out empty flags with GProtocolDeclDel#validateBySpin
 							+ "goto " + getLabel(seen, getSuccessor(a), r) + "\n"
 						)
 						.collect(Collectors.joining("")) 
@@ -117,7 +125,7 @@ public class EState extends MPrettyState<RecVar, EAction, EState, Local>
 			throw new RuntimeException("TODO: " + kind);
 		}
 
-		res += as.stream().map(a -> "\n" + getSuccessor(a).toPml(tmp, r)).collect(Collectors.joining(""));
+		res += as.stream().map(a -> "\n" + getSuccessor(a).toPml(tmp, r, fairAndNonTermFairActions)).collect(Collectors.joining(""));
 
 		return res;
 	}

@@ -15,6 +15,7 @@ package org.scribble.del.global;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -251,15 +252,51 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 		{
 			EGraph g = jc.getEGraph(fullname, r);
 			gs.put(r, g);
-			pml += "\n\n" + g.toPml(r);
-			if (job.debug)
-			{
-				System.out.println("[-spin]: Promela processes\n" + pml + "\n");
-			}
 		}
+
+		// FIXME split termination-fairness and non-terminating-fairness
+		boolean termFair = gs.values().stream().allMatch(g -> g.isTermFair());  // FIXME: only needed if -fair
+		Map<Integer, List<EAction>> fairAndNonTermFairActions = new HashMap<>();  
+				// For all endpoints, state id's globally unique
+				// Empty means non-fair, or term-fair, or no poly output choice paths to treat
 		
-	// FIXME split termination-fairness and non-terminating-fairness
-		boolean termFair = gs.values().stream().allMatch(g -> g.isTermFair());
+		for (Role r : rs)
+		{
+			EGraph g = gs.get(r);
+
+			if (fair && !termFair)
+			{
+				Set<EState> reach = Stream.of(g.init).collect(Collectors.toSet());
+				reach.addAll(MState.getReachableStates(g.init));
+				Set<EState> filtered = reach.stream().filter(s -> !s.getLabels().isEmpty() && s.getStateKind() == EStateKind.OUTPUT
+						&& s.isTermSetEntry()).collect(Collectors.toSet());  // Includes #succs == 1, e.g., rec X { a1 . ( a2.X + a3.X ) }
+				for (EState s : filtered)
+				{
+					List<List<EAction>> ps = g.getAllPaths(s, s);
+					Function<List<EAction>, EAction> f = p ->
+							p.stream().filter(a -> ps.stream().filter(pp -> !p.equals(pp)).allMatch(pp -> !pp.contains(a))).findAny().get();
+					if (ps.size() > 1)
+					{
+						List<EAction> tmp = new LinkedList<>();
+						fairAndNonTermFairActions.put(s.id, tmp);
+						pml += "\n";
+						for (List<EAction> p : ps)
+						{
+							EAction a = f.apply(p);
+							tmp.add(a);
+							pml += "\nbool " + r + s.id + "_" + a.mid + " = false;";  // FIXME: factor out label (EState#toPml)
+						}
+					}
+				}
+			}
+			
+			pml += "\n\n" + g.toPml(r, fairAndNonTermFairActions);  // FIXME
+		}
+		if (job.debug)
+		{
+			System.out.println("[-spin]: Promela processes\n" + pml + "\n");
+		}
+
 		if (fair)
 		{
 			if (termFair)
@@ -268,16 +305,15 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 			}
 			else
 			{
-				validateBySpinNonTermFair(job, fullname, gpd, rs, pairs, pml, true);
+				validateBySpinNonTermFair(job, fullname, gpd, rs, pairs, pml, true, fairAndNonTermFairActions);
 			}
 		}
 		else
 		{
-			validateBySpinNonTermFair(job, fullname, gpd, rs, pairs, pml, false);
+			validateBySpinNonTermFair(job, fullname, gpd, rs, pairs, pml, false, Collections.emptyMap());
 		}
 	}
 
-	
 	// FIXME: integrate with below -- currently this is not used with fair==false
 	private static void validateBySpinTermFair(Job job, GProtocolName fullname, GProtocolDecl gpd,
 			List<Role> rs, List<Role[]> pairs, String pml, boolean fair) throws ScribbleException
@@ -288,8 +324,7 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 		List<String> clauses = new LinkedList<>();
 		for (Role r : rs)
 		{
-
-			// FIXME: factor out with above
+			// FIXME: factor out with above 
 			Set<EState> tmp = new HashSet<>();
 			EGraph g = jc.getEGraph(fullname, r);
 			tmp.add(g.init);
@@ -364,7 +399,7 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 	// FIXME: above needs restricting to such cases; "offset" recursive-choices are possible e.g., rec X { ...; ( A->B.X + A->B.end ) } -- no: should be OK?  only need to detect fairness via any action in each choice path, not necessarily the "entry" action)
 	// eventual reception (for non-terminating-fairness) -- use batching, sound to batch by distribution-law for implies
 	private static void validateBySpinNonTermFair(Job job, GProtocolName fullname, GProtocolDecl gpd,
-			List<Role> rs, List<Role[]> pairs, String pml, boolean fair) throws ScribbleException
+			List<Role> rs, List<Role[]> pairs, String pml, boolean fair, Map<Integer, List<EAction>> fairAndNonTermFairActions) throws ScribbleException
 	{
 		JobContext jc = job.getContext();
 
@@ -380,7 +415,7 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 			{
 				tmp.remove(g.term);
 			}
-			tmp.forEach(s ->  // Throws exception, cannot use flatMap
+			for (EState s : tmp)  // Throws exception, cannot use flatMap
 			{
 				EStateKind kind = s.getStateKind();
 				if (kind == EStateKind.UNARY_INPUT || kind == EStateKind.POLY_INPUT)  // FIXME: include outputs due to bounded model?  or subsumed by eventual stability
@@ -392,23 +427,15 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 				{
 					throw new RuntimeException("[-spin] TODO: " + kind);
 				}
-				if (fair)
+				if (fairAndNonTermFairActions.containsKey(s.id))  // !fairAndNonTermFairActions.isEmpty() implies fair and non term-fair
 				{
-					if (!s.getLabels().isEmpty() && kind == EStateKind.OUTPUT && s.isTermSetEntry())  // Includes #succs == 1, e.g., rec X { a1 . ( a2.X + a3.X ) }
-					{
-						List<List<EAction>> ps = g.getAllPaths(s, s);
-						if (ps.size() > 1)
-						{
-							String fc = "[]<>" + r + "@" + getPmlLabel(r, s) + " -> (";
-							Function<List<EAction>, EAction> f = p ->
-									p.stream().filter(a -> ps.stream().filter(pp -> !p.equals(pp)).allMatch(pp -> !pp.contains(a))).findAny().get();
-							fc += ps.stream().map(p -> "<>" + r + "@" + getPmlLabel(r, s.getSuccessor(f.apply(p)))).collect(Collectors.joining(" && "));
-							fc += ")";
-							fairChoices.add(fc);
-						}
-					}
+					String fc = "[]<>" + r + "@" + getPmlLabel(r, s) + " -> (";
+					fc += fairAndNonTermFairActions.get(s.id).stream().map(a -> "<>" + r + s.id + "_" + a.mid).collect(Collectors.joining(" && "));  // FIXME: factor out label
+					fc += ")";
+					fairChoices.add(fc);
+							// Alternative would be to implement a "scheduler" for (infinitely occurring) output choices and show it's sound to use
 				}
-			});
+			}
 		}
 		//*/
 		/*String roleProgress = "";  // This way is not faster

@@ -13,6 +13,9 @@
  */
 package org.scribble.model.endpoint;
 
+import java.util.List;
+import java.util.Map;
+
 import org.scribble.model.MGraph;
 import org.scribble.model.MState;
 import org.scribble.model.endpoint.actions.EAction;
@@ -50,9 +53,9 @@ public class EGraph extends MGraph<RecVar, EAction, EState, Local> //implements 
 		return new EFSM(this);
 	}
 	
-	public String toPml(Role r)
+	public String toPml(Role r, Map<Integer, List<EAction>> fairAndNonTermFairActions)  // FIXME
 	{
-		return this.init.toPml(r);
+		return this.init.toPml(r, fairAndNonTermFairActions);
 	}
 
 	/*@Override
