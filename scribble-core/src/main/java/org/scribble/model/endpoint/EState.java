@@ -89,7 +89,7 @@ public class EState extends MPrettyState<RecVar, EAction, EState, Local>
 							+ "atomic { s_" + r + "_" + a.peer + "!" + a.mid + "; "
 									+ (fairAndNonTermFairActions.containsKey(this.id)  // FIXME: factor out
 												? r.toString() + this.id + "_" + a.mid + " = true; "
-													+ as.stream().filter(aa -> !a.equals(aa)).map(aa -> r.toString() + this.id + "_" + a.mid + " = false; ").collect(Collectors.joining(""))
+													+ as.stream().filter(aa -> !a.equals(aa)).map(aa -> r.toString() + this.id + "_" + aa.mid + " = false; ").collect(Collectors.joining(""))
 															// FIXME: factor out label
 												: "") 
 									+ "empty_" + r + "_" + a.peer + " = false }\n"

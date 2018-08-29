@@ -80,6 +80,11 @@ global protocol Proto1(role A, role B, role C)
 		m2() from A to C;
 		do Proto1(A, B, C);
 	}
+	/*or
+	{
+		m3() from A to C;
+		do Proto1(A, B, C);
+	}*/
 }
 //*/
 
