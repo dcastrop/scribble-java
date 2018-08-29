@@ -224,7 +224,7 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 				.flatMap(r1 -> rs.stream().flatMap(r2 -> !r1.equals(r2) ? Stream.<Role[]>of(new Role[]{r1, r2}) : Stream.<Role[]>empty()))
 				.collect(Collectors.toList());
 		//for (Role[] p : (Iterable<Role[]>) () -> pairs.stream().sorted().iterator())
-		for (Role[] p : pairs)
+		for (Role[] p : pairs)  // FIXME: use a single chan, half-duplex?
 		{
 			pml += "chan s_" + p[0] + "_" + p[1] + " = [1] of { mtype };\n"  
 								// Async queue size 1 even though separate s/r chans, to work with guarded inputs
@@ -276,6 +276,7 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 	}
 
 	
+	// FIXME: integrate with below -- currently this is not used with fair==false
 	private static void validateBySpinTermFair(Job job, GProtocolName fullname, GProtocolDecl gpd,
 			List<Role> rs, List<Role[]> pairs, String pml, boolean fair) throws ScribbleException
 	{
@@ -325,27 +326,27 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 					// FIXME: eventual stability too strong -- can be violated by certain interleavings keeping alternate queues non-empty
 					// N.B. "fairness" fixes the above for recursions-with-exits, since exit always eventually taken (so, eventual stable termination)
 		}
-		eventualStability = "[](" + eventualStability + ")";
 		clauses.add(eventualStability);
 
 		Map<String, String> props = new HashMap<>();
-		//int batchSize = 10;  // FIXME: factor out
-		int batchSize = 100;  // FIXME: factor out  // FIXME: dynamic batch sizing based on previous batch duration?
-		for (int i = 0; i < clauses.size(); )
+		int batchSize = 999999;  // FIXME: remove batching, redundant here
+		for (int i = 0, k = 1; i < clauses.size(); k++)
 		{
 			int j = (i+batchSize < clauses.size()) ? i+batchSize : clauses.size();
 			String batch = "<>[](" + clauses.subList(i, j).stream().collect(Collectors.joining(" && ")) + ")";
 			String ltl =
-					  "ltl p" + i + " {\n"
+					  "ltl p" + k + " {\n"
 					+ ((fair && !fairChoices.isEmpty()) ? "<>[](" + fairChoices.stream().map(c -> c.toString()).collect(Collectors.joining(" && ")) + ")\n->\n" : "")  // FIXME: filter by batching? -- optimise batches more "semantically"?
-					+ "(" + batch + ")"
+							// OK, a -> (b && c) = (a -> b) && (a -> c)
+					//+ "(" + batch + ")"
+					+ batch
 					+ "\n" + "}";
 			if (job.debug)
 			{
 				System.out.println("[-spin] Batched ltl:\n" + ltl + "\n");
 			}
 
-			props.put("p" + i, ltl);  // Factour out prop name
+			props.put("p" + k, ltl);  // Factour out prop name
 
 			i += batchSize;
 		}
@@ -366,7 +367,7 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 		JobContext jc = job.getContext();
 
 		List<String> fairChoices = new LinkedList<>();  // Poly-output only
-		List<String> clauses = new LinkedList<>();
+		List<String> clauses = new LinkedList<>();  // Conjunction
 		for (Role r : rs)
 		{
 			Set<EState> tmp = new HashSet<>();
@@ -382,7 +383,7 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 				EStateKind kind = s.getStateKind();
 				if (kind == EStateKind.UNARY_INPUT || kind == EStateKind.POLY_INPUT)  // FIXME: include outputs due to bounded model?  or subsumed by eventual stability
 				{
-					clauses.add("!<>[]" + r + "@" + getPmlLabel(r, s));  // FIXME: factor out label
+					clauses.add("<>!" + r + "@" + getPmlLabel(r, s));  // [] will be added to whole batch  // FIXME: factor out label
 				}
 				else if (kind != EStateKind.OUTPUT && kind != EStateKind.TERMINAL)
 				{
@@ -421,27 +422,31 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 		{
 			clauses.add("[]<>(empty_" + p[0] + "_" + p[1] + ")");
 		}*/
-		String eventualStability = "";
+		//String eventualStability = "";
 		for (Role[] p : pairs)
 		{
-			eventualStability += (((eventualStability.isEmpty()) ? "" : " && ") + "<>empty_" + p[0] + "_" + p[1]);  // "eventual reception", not eventual stability
+			/*eventualStability += (((eventualStability.isEmpty()) ? "" : " && ") + "<>empty_" + p[0] + "_" + p[1]);  // "eventual reception", not eventual stability
 			//eventualStability += (((eventualStability.isEmpty()) ? "" : " && ") + "empty_" + p[0] + "_" + p[1]);
 					// FIXME: eventual stability too strong -- can be violated by certain interleavings keeping alternate queues non-empty
-					// N.B. "fairness" fixes the above for recursions-with-exits, since exit always eventually taken (so, eventual stable termination)
+					// N.B. "fairness" fixes the above for recursions-with-exits, since exit always eventually taken (so, eventual stable termination)*/
+			String eventualReception = "<>empty_" + p[0] + "_" + p[1];  // [] will be added to whole batch
+			clauses.add(eventualReception);
 		}
-		eventualStability = "[](" + eventualStability + ")";
+		/*eventualStability = "[](" + eventualStability + ")";
 		//eventualStability = "[]<>(" + eventualStability + ")";
-		clauses.add(eventualStability);
+		clauses.add(eventualStability);*/
 
 		Map<String, String> props = new HashMap<>();
 		//int batchSize = 10;  // FIXME: factor out
-		int batchSize = 1;  // FIXME: factor out  // FIXME: dynamic batch sizing based on previous batch duration?
-		for (int i = 0; i < clauses.size(); )
+		int batchSize = 2;  // FIXME: factor out  
+				// FIXME: dynamic batch sizing based on previous batch duration?  
+				// CHECKME: batching better for error reporting?  (batchSize=1 best?)
+		for (int i = 0, k = 1; i < clauses.size(); k++)
 		{
 			int j = (i+batchSize < clauses.size()) ? i+batchSize : clauses.size();
-			String batch = clauses.subList(i, j).stream().collect(Collectors.joining(" && "));
+			String batch = "[](" + clauses.subList(i, j).stream().collect(Collectors.joining(" && ")) + ")";
 			String ltl =
-					  "ltl p" + i + " {\n"
+					  "ltl p" + k + " {\n"
 					+ ((fair && !fairChoices.isEmpty()) ? "(" + fairChoices.stream().map(c -> c.toString()).collect(Collectors.joining(" && ")) + ")\n->\n" : "")  // FIXME: filter by batching? -- optimise batches more "semantically"?
 					+ "(" + batch + ")"
 					+ "\n" + "}";
@@ -454,7 +459,7 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 				throw new ScribbleException("Protocol not valid:\n" + gpd);
 			}*/
 
-			props.put("p" + i, ltl);  // Factour out prop name
+			props.put("p" + k, ltl);  // Factour out prop name
 
 			i += batchSize;
 		}

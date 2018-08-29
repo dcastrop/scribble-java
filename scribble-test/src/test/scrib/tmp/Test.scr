@@ -33,7 +33,7 @@ module tmp.Test;
 // FIXME TODO: port forwarding version of P2 -- funny case of "session" persisting over full disconnect, should/how to correlate?
 
 
-//*
+/*
 global protocol Proto1(role A, role B, role C)
 {
 	choice at A
@@ -67,8 +67,8 @@ global protocol Proto1(role A, role B, role C)
 }
 //*/
 
-/*
-global protocol Proto1(role A, role B, role C)
+//*
+global protocol Proto1(role A, role B, role C)  // FIXME: graph building broken?
 {
 	choice at A
 	{
