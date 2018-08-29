@@ -89,11 +89,16 @@ public class EState extends MPrettyState<RecVar, EAction, EState, Local>
 							+ "atomic { s_" + r + "_" + a.peer + "!" + a.mid + "; "
 									+ (fairAndNonTermFairActions.containsKey(this.id)  // FIXME: factor out
 												? r.toString() + this.id + "_" + a.mid + " = true; "
-													+ as.stream().filter(aa -> !a.equals(aa)).map(aa -> r.toString() + this.id + "_" + aa.mid + " = false; ").collect(Collectors.joining(""))
+														//+ as.stream().filter(aa -> !a.equals(aa)).map(aa -> r.toString() + this.id + "_" + aa.mid + " = false; ").collect(Collectors.joining(""))
 															// FIXME: factor out label
 												: "") 
-									+ "empty_" + r + "_" + a.peer + " = false }\n"
+									+ "empty_" + r + "_" + a.peer + " = false };\n"
 									// FIXME: factor out empty flags with GProtocolDeclDel#validateBySpin
+							+ (fairAndNonTermFairActions.containsKey(this.id)  // FIXME: factor out
+									? "if\n:: (" + fairAndNonTermFairActions.get(this.id).stream().map(aa -> r.toString() + this.id + "_" + aa.mid).collect(Collectors.joining(" && ")) + ")"
+											+ " -> atomic { " + fairAndNonTermFairActions.get(this.id).stream().map(aa -> r.toString() + this.id + "_" + aa.mid + " = false; ").collect(Collectors.joining("")) + "}\n"
+											+ ":: else -> skip\nfi;\n"
+									: "")
 							+ "goto " + getLabel(seen, getSuccessor(a), r) + "\n"
 						)
 						.collect(Collectors.joining(""))

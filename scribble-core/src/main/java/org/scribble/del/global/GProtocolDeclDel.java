@@ -429,8 +429,9 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 				}
 				if (fairAndNonTermFairActions.containsKey(s.id))  // !fairAndNonTermFairActions.isEmpty() implies fair and non term-fair
 				{
-					String fc = "[]<>" + r + "@" + getPmlLabel(r, s) + " -> [](";
-					fc += fairAndNonTermFairActions.get(s.id).stream().map(a -> "<>" + r + s.id + "_" + a.mid).collect(Collectors.joining(" && "));  // FIXME: factor out label
+					String fc = "[]<>" + r + "@" + getPmlLabel(r, s) + " -> []<>(";
+					//fc += fairAndNonTermFairActions.get(s.id).stream().map(a -> "<>" + r + s.id + "_" + a.mid).collect(Collectors.joining(" && "));  // FIXME: factor out label
+					fc += fairAndNonTermFairActions.get(s.id).stream().map(a -> r.toString() + s.id + "_" + a.mid).collect(Collectors.joining(" && "));  // FIXME: factor out label
 					fc += ")";
 					fairChoices.add(fc);
 							// Alternative would be to implement a "scheduler" for (infinitely occurring) output choices and show it's sound to use
