@@ -67,7 +67,7 @@ global protocol Proto1(role A, role B, role C)
 }
 //*/
 
-//*
+/*
 global protocol Proto1(role A, role B, role C)
 {
 	choice at A
@@ -89,6 +89,52 @@ global protocol Proto1(role A, role B, role C)
 	{
 		m4() from A to C;
 		do Proto1(A, B, C);
+	}
+}
+//*/
+
+//*
+global protocol Proto1(role A, role B, role C)
+{
+	choice at A
+	{
+		m1() from A to B;
+		m1() from A to C;
+		do Proto1a(A, B, C);
+	}
+	or 
+	{
+		m2() from A to B;
+		m2() from A to C;
+		do Proto2a(A, B, C);
+	}
+}
+
+global protocol Proto1a(role A, role B, role C)
+{
+	choice at A
+	{
+		m1a() from A to B;
+		do Proto1a(A, B, C);
+	}
+	or
+	{
+		m1b() from A to C;
+		do Proto1a(A, B, C);
+	}
+}
+
+global protocol Proto2a(role A, role B, role C)
+{
+	choice at A
+	{
+		m2a() from A to B;
+		do Proto2a(A, B, C);
+	}
+	or
+	{
+		m2b() from A to C;
+		do Proto2a(A, B, C);
 	}
 }
 //*/
