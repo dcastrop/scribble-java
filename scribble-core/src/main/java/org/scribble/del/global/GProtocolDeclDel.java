@@ -256,7 +256,7 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 
 		// FIXME split termination-fairness and non-terminating-fairness
 		boolean termFair = gs.values().stream().allMatch(g -> g.isTermFair());  // FIXME: only needed if -fair
-		Map<Integer, List<EAction>> fairAndNonTermFairActions = new HashMap<>();  
+		Map<Integer, List<EAction>> fairAndNonTermFairActions = new HashMap<>();   // FIXME: categorise all recursions as term-fair and non-term-fair, and gen fair clauses accordingly
 				// For all endpoints, state id's globally unique
 				// Empty means non-fair, or term-fair, or no poly output choice paths to treat
 		
