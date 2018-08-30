@@ -490,6 +490,11 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 					+ ((fair && !fairChoices.isEmpty()) ? "(" + fairChoices.stream().map(c -> c.toString()).collect(Collectors.joining(" && ")) + ")\n->\n" : "")  // FIXME: filter by batching? -- optimise batches more "semantically"?
 					+ "(" + batch + ")"
 					+ "\n" + "}";
+			
+						// FIXME 1: do term-fair or non-term-fair on a per-recursion basis, e.g., term and term set both possible
+						// FIXME 2: derive "necessary" fair clauses for each property from G ?  e.g., mutually exclusive term sets
+						// FIXME 3: combine fair clauses where applicable (within term sets? -- for different roles?), e.g. (a -> b) && (c -> d) => (a && b) -> (c && d)
+
 			if (job.debug)
 			{
 				System.out.println("[-spin] Batched ltl:\n" + ltl + "\n");
