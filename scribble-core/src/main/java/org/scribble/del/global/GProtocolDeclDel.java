@@ -492,7 +492,9 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 					+ "\n" + "}";
 			
 						// FIXME 1: do term-fair or non-term-fair on a per-recursion basis, e.g., term and term set both possible
-						// FIXME 2: derive "necessary" fair clauses for each property from G ?  e.g., mutually exclusive term sets
+								// but need to consider, e.g., term-recursion nested within a term set -- primitive option: don't do <>[]!s (never come back), do [](s -> <>(exit1 || exit2 || ...)) ?  but that doesn't repeat exits fairly if nested in term set?
+						// FIXME 2: derive "necessary" fair clauses for each property from G ?  e.g., to separate mutually exclusive term sets
+								// and group properties with same necesary fair clauses?
 						// FIXME 3: combine fair clauses where applicable (within term sets? -- for different roles?), e.g. (a -> b) && (c -> d) => (a && b) -> (c && d)
 
 			if (job.debug)

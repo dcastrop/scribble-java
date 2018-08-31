@@ -50,24 +50,68 @@ public class EState extends MPrettyState<RecVar, EAction, EState, Local>
 	
 	public String toPml(Role r, Map<Integer, List<EAction>> fairAndNonTermFairActions)
 	{
-		Map<Integer, String> seen = new HashMap<>();
+		Set<Integer> seen = new HashSet<>();
+		Map<Integer, String> nodelabs = new HashMap<>();
 		return 
 				  "active proctype " + r + "() {\n"
-				+ toPml(seen, r, fairAndNonTermFairActions) + "\n"
+				+ toPml(seen, nodelabs, r, fairAndNonTermFairActions) + "\n"
 				+ "}\n";
 	}
 	
-	protected String toPml(Map<Integer, String> seen, Role r, Map<Integer, List<EAction>> fairAndNonTermFairActions)
+	// Pre: don't call if target state is already in seen
+	protected String toPml(Set<Integer> seen, Map<Integer, String> nodelabs, Role r, Map<Integer, List<EAction>> fairAndNonTermFairActions)
 	{
-		if (seen.containsKey(this.id))
+		/*if (seen.containsKey(this.id))  // No: doesn't work for merge patterns (will visit merge state multiply)
 		{
 			//return "goto " + getLabel(seen, this.id, r) + "\n";
 			return "";
+		}*/
+		
+		Set<EState> allExceptTerm = new HashSet<>();
+		allExceptTerm.add(this);
+		allExceptTerm.addAll(getReachableStates(this));
+		EState term = MState.getTerminal(this);
+		if (term != null)
+		{
+			allExceptTerm.remove(term);
 		}
-
-		String lab = getLabel(seen, this, r);
-		Map<Integer, String> tmp = new HashMap<>(seen);
-		tmp.put(this.id, lab);
+		String aut = "";
+		//int edges = 0;
+		//Set<Integer> seen = new HashSet<>();
+		for (EState s : allExceptTerm)
+		{
+			if (seen.contains(s.id))
+			{
+				continue;
+			}
+			//seen.put(s.id, );
+			//getLabel(nodelabs, s, r);  // FIXME: result not needed here (refactor)
+			seen.add(s.id);
+			/*Iterator<EAction> as = s.getAllActions().iterator();
+			Iterator<EState> ss = s.getAllSuccessors().iterator();
+			for (; as.hasNext(); )
+			{
+				//EAction a = 
+				as.next();
+				EState succ = ss.next();
+				//String msg = a.toStringWithMessageIdHack();  // HACK
+				aut += succ.nodeToPml(nodelabs, r, fairAndNonTermFairActions);
+			}*/
+			aut += "\n" + s.nodeToPml(nodelabs, r, fairAndNonTermFairActions);
+		}
+		if (term != null)
+		{
+			aut += "\n" + term.nodeToPml(nodelabs, r, fairAndNonTermFairActions);  // Must come at end, just does skip
+		}
+		return aut;
+	}
+		
+	private String nodeToPml(Map<Integer, String> nodelabs, Role r, Map<Integer, List<EAction>> fairAndNonTermFairActions)	
+	{
+		//..FIXME: handle merge, by looping, not recursion (cf., toAut, toDot)
+		String lab = getLabel(nodelabs, this, r);
+		/*Map<Integer, String> tmp = new HashMap<>(seen);
+		tmp.put(this.id, lab);*/
 
 		String res = lab + ":\n";
 		EStateKind kind = getStateKind();
@@ -99,7 +143,7 @@ public class EState extends MPrettyState<RecVar, EAction, EState, Local>
 											+ " -> atomic { " + fairAndNonTermFairActions.get(this.id).stream().map(aa -> r.toString() + this.id + "_" + aa.mid + " = false; ").collect(Collectors.joining("")) + "}\n"
 											+ ":: else -> skip\nfi;\n"
 									: "")
-							+ "goto " + getLabel(seen, getSuccessor(a), r) + "\n"
+							+ "goto " + getLabel(nodelabs, getSuccessor(a), r) + "\n"
 						)
 						.collect(Collectors.joining(""))
 					+ "fi\n";
@@ -116,7 +160,7 @@ public class EState extends MPrettyState<RecVar, EAction, EState, Local>
 							+ "s_" + a.peer + "_" + r + "?[" + a.mid + "] ->\n"
 							+ "atomic { s_" + a.peer + "_" + r + "?" + a.mid + "; empty_" + a.peer + "_" + r + " = true }\n"
 									// FIXME: factor out empty flags with GProtocolDeclDel#validateBySpin
-							+ "goto " + getLabel(seen, getSuccessor(a), r) + "\n"
+							+ "goto " + getLabel(nodelabs, getSuccessor(a), r) + "\n"
 						)
 						.collect(Collectors.joining("")) 
 					+ "fi\n";
@@ -130,7 +174,8 @@ public class EState extends MPrettyState<RecVar, EAction, EState, Local>
 			throw new RuntimeException("TODO: " + kind);
 		}
 
-		res += as.stream().map(a -> "\n" + getSuccessor(a).toPml(tmp, r, fairAndNonTermFairActions)).collect(Collectors.joining(""));
+		//res += as.stream().map(a -> "\n" + getSuccessor(a).toPml(tmp, r, fairAndNonTermFairActions)).collect(Collectors.joining(""));
+				// No: doesn't work for merge patterns (will visit merge state multiply)
 
 		return res;
 	}
