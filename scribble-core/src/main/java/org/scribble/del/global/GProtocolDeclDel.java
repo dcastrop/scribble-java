@@ -284,9 +284,7 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 				{
 					List<List<EAction>> ps = g.getAllPaths(s, s);  // CHECKME: non-deterministic paths? -- N.B. mostly using -minlts with -spin
 					
-					
-					System.out.println("AAAA: " + ps);
-					
+					//System.out.println("AAAA: " + ps);
 					
 					Function<List<EAction>, EAction> f = p ->
 							p.stream().filter(a -> ps.stream().filter(pp -> !p.equals(pp)).allMatch(pp -> !pp.contains(a))).findFirst().get();
@@ -320,7 +318,7 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 				}
 			}
 
-			System.out.println("BBBB: " + fairAndNonTermFairActions);
+			//System.out.println("BBBB: " + fairAndNonTermFairActions);
 			
 			pml += "\n\n" + g.toPml(r, fairAndNonTermFairActions2);  // FIXME
 		}
