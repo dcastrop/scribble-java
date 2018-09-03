@@ -259,9 +259,11 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 		Map<Integer, Map<Integer, List<EAction>>> fairAndNonTermFairActions = new HashMap<>();   // FIXME: categorise all recursions as term-fair and non-term-fair, and gen fair clauses accordingly
 				// For all endpoints, state id's globally unique
 				// Empty means non-fair, or term-fair, or no poly output choice paths to treat
-				// "Distinguishing" action may be an input, e.g., rec X { A->B.X + A->B.(B->A.X + B->A.X) } -- "duplicate" treatment at A's and B's output choices (necessary)  // FIXME: out "recursion decision actions" properly
+				// "Distinguishing" action may be an input, e.g., rec X { A->B.X + A->B.(B->A.X + B->A.X) } -- "duplicate" treatment at A's and B's output choices (necessary)  
+						// FIXME: work out "recursion decision actions" properly, e.g., rec X { A->B . (B->A.X + B->A) }, "decision state" is at B (not A)
 		Map<Integer, List<EAction>> fairAndNonTermFairActions2 = new HashMap<>();   
 				// Above has output choice state as key; here is the "actual" action state (may be different)
+				// FIXME #2 is now redundant (info is in #1)
 
 		System.out.println("1111: " + termFair);
 		
