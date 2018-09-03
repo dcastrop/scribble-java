@@ -256,9 +256,14 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 
 		// FIXME split termination-fairness and non-terminating-fairness
 		boolean termFair = gs.values().stream().allMatch(g -> g.isTermFair());  // FIXME: only needed if -fair
-		Map<Integer, List<EAction>> fairAndNonTermFairActions = new HashMap<>();   // FIXME: categorise all recursions as term-fair and non-term-fair, and gen fair clauses accordingly
+		Map<Integer, Map<Integer, List<EAction>>> fairAndNonTermFairActions = new HashMap<>();   // FIXME: categorise all recursions as term-fair and non-term-fair, and gen fair clauses accordingly
 				// For all endpoints, state id's globally unique
 				// Empty means non-fair, or term-fair, or no poly output choice paths to treat
+				// "Distinguishing" action may be an input, e.g., rec X { A->B.X + A->B.(B->A.X + B->A.X) } -- "duplicate" treatment at A's and B's output choices (necessary)  // FIXME: out "recursion decision actions" properly
+		Map<Integer, List<EAction>> fairAndNonTermFairActions2 = new HashMap<>();   
+				// Above has output choice state as key; here is the "actual" action state (may be different)
+
+		System.out.println("1111: " + termFair);
 		
 		for (Role r : rs)
 		{
@@ -268,29 +273,56 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 			{
 				Set<EState> reach = Stream.of(g.init).collect(Collectors.toSet());
 				reach.addAll(MState.getReachableStates(g.init));
+				
+				
+				// FIXME:  filter all recursion entrys, and categorise term or term-set
+				
+				
 				Set<EState> filtered = reach.stream().filter(s -> !s.getLabels().isEmpty() && s.getStateKind() == EStateKind.OUTPUT
 						&& s.isTermSetEntry()).collect(Collectors.toSet());  // Includes #succs == 1, e.g., rec X { a1 . ( a2.X + a3.X ) }
 				for (EState s : filtered)
 				{
-					List<List<EAction>> ps = g.getAllPaths(s, s);
+					List<List<EAction>> ps = g.getAllPaths(s, s);  // CHECKME: non-deterministic paths? -- N.B. mostly using -minlts with -spin
+					
+					
+					System.out.println("AAAA: " + ps);
+					
+					
 					Function<List<EAction>, EAction> f = p ->
-							p.stream().filter(a -> ps.stream().filter(pp -> !p.equals(pp)).allMatch(pp -> !pp.contains(a))).findAny().get();
+							p.stream().filter(a -> ps.stream().filter(pp -> !p.equals(pp)).allMatch(pp -> !pp.contains(a))).findFirst().get();
 					if (ps.size() > 1)
 					{
-						List<EAction> tmp = new LinkedList<>();
-						fairAndNonTermFairActions.put(s.id, tmp);
+						Map<Integer, List<EAction>> tmp0 = new HashMap<>();
+						fairAndNonTermFairActions.put(s.id, tmp0);
 						pml += "\n";
 						for (List<EAction> p : ps)
 						{
 							EAction a = f.apply(p);
+							//tmp.add(a);
+							EState ss = g(s, p, a);
+							List<EAction> tmp2 = fairAndNonTermFairActions2.get(ss.id);
+							if (tmp2 == null)
+							{
+								tmp2 = new LinkedList<>();
+								fairAndNonTermFairActions2.put(ss.id, tmp2);
+							}
+							tmp2.add(a);
+							List<EAction> tmp = tmp0.get(ss.id);
+							if (tmp == null)
+							{
+								tmp = new LinkedList<>();
+								tmp0.put(ss.id, tmp);
+							}
 							tmp.add(a);
-							pml += "\nbool " + r + s.id + "_" + a.mid + " = false;";  // FIXME: factor out label (EState#toPml)
+							pml += "\nbool " + r + ss.id + "_" + a.mid + " = false;";  // FIXME: factor out label (EState#toPml)
 						}
 					}
 				}
 			}
+
+			System.out.println("BBBB: " + fairAndNonTermFairActions);
 			
-			pml += "\n\n" + g.toPml(r, fairAndNonTermFairActions);  // FIXME
+			pml += "\n\n" + g.toPml(r, fairAndNonTermFairActions2);  // FIXME
 		}
 		if (job.debug)
 		{
@@ -312,6 +344,19 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 		{
 			validateBySpinNonTermFair(job, fullname, gpd, rs, pairs, pml, false, Collections.emptyMap());
 		}
+	}
+	
+	private static EState g(EState s, List<EAction> p, EAction a)
+	{
+		for (EAction aa : p)
+		{
+			if (aa.equals(a))  // Must be first "a" in "p" (cf. findFirst); otherwise "a" would be in some other path
+			{
+				return s;
+			}
+			s = s.getSuccessor(aa);
+		}
+		throw new RuntimeException("Shouldn't get in here: " + s + ", " + p + ", " + a);
 	}
 
 	// FIXME: integrate with below -- currently this is not used with fair==false
@@ -399,7 +444,7 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 	// FIXME: above needs restricting to such cases; "offset" recursive-choices are possible e.g., rec X { ...; ( A->B.X + A->B.end ) } -- no: should be OK?  only need to detect fairness via any action in each choice path, not necessarily the "entry" action)
 	// eventual reception (for non-terminating-fairness) -- use batching, sound to batch by distribution-law for implies
 	private static void validateBySpinNonTermFair(Job job, GProtocolName fullname, GProtocolDecl gpd,
-			List<Role> rs, List<Role[]> pairs, String pml, boolean fair, Map<Integer, List<EAction>> fairAndNonTermFairActions) throws ScribbleException
+			List<Role> rs, List<Role[]> pairs, String pml, boolean fair, Map<Integer, Map<Integer, List<EAction>>> fairAndNonTermFairActions) throws ScribbleException
 	{
 		JobContext jc = job.getContext();
 
@@ -427,11 +472,15 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 				{
 					throw new RuntimeException("[-spin] TODO: " + kind);
 				}
+				// N.B. fairAndNonTermFairActions action may not be directly from "s" ("offset" recursions)
 				if (fairAndNonTermFairActions.containsKey(s.id))  // !fairAndNonTermFairActions.isEmpty() implies fair and non term-fair
 				{
 					String fc = "([]<>" + r + "@" + getPmlLabel(r, s) + " -> []<>(";
 					//fc += fairAndNonTermFairActions.get(s.id).stream().map(a -> "<>" + r + s.id + "_" + a.mid).collect(Collectors.joining(" && "));  // FIXME: factor out label
-					fc += fairAndNonTermFairActions.get(s.id).stream().map(a -> r.toString() + s.id + "_" + a.mid).collect(Collectors.joining(" && "));  // FIXME: factor out label
+					fc += fairAndNonTermFairActions.get(s.id).entrySet().stream()
+							//.map(a -> r.toString() + s.id + "_" + a.mid).collect(Collectors.joining(" && "));  // FIXME: factor out label
+							.flatMap(e -> e.getValue().stream().map(a -> r.toString() + e.getKey() + "_" + a.mid))
+							.collect(Collectors.joining(" && "));  // FIXME: factor out label
 					fc += "))";
 					fairChoices.add(fc);
 							// Alternative would be to implement a "scheduler" for (infinitely occurring) output choices and show it's sound to use
@@ -492,7 +541,8 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 					+ "\n" + "}";
 			
 						// FIXME 1: do term-fair or non-term-fair on a per-recursion basis, e.g., term and term set both possible
-								// but need to consider, e.g., term-recursion nested within a term set -- primitive option: don't do <>[]!s (never come back), do [](s -> <>(exit1 || exit2 || ...)) ?  but that doesn't repeat exits fairly if nested in term set?
+								// but need to consider, e.g., term-recursion nested within a term set -- primitive option: don't do <>[]!s (never come back), do [](s -> <>(exit1 || exit2 || ...)) ?  
+								// but above doesn't repeat exits fairly if nested in term set? -- if within term-set, should just skip
 						// FIXME 2: derive "necessary" fair clauses for each property from G ?  e.g., to separate mutually exclusive term sets
 								// and group properties with same necesary fair clauses?
 						// FIXME 3: combine fair clauses where applicable (within term sets? -- for different roles?), e.g. (a -> b) && (c -> d) => (a && b) -> (c && d)

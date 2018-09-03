@@ -67,6 +67,7 @@ public class EState extends MPrettyState<RecVar, EAction, EState, Local>
 			return "";
 		}*/
 		
+		// Cf. MPrettyState.toAut
 		Set<EState> allExceptTerm = new HashSet<>();
 		allExceptTerm.add(this);
 		allExceptTerm.addAll(getReachableStates(this));

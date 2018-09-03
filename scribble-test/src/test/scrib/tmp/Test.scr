@@ -34,7 +34,7 @@ module tmp.Test;
 
 
 
-//*
+/*
 global protocol Proto1(role A, role B, role C)
 {
 	choice at A
@@ -96,6 +96,94 @@ global protocol Proto1(role A, role B, role C)
 }
 //*/
 
+
+/*
+global protocol Proto1(role A, role B, role C)
+{
+	choice at A
+	{
+		m1() from A to B;
+		do Proto1(A, B, C);
+	}
+	or
+	{
+		m2() from A to C;
+		do Proto1(A, B, C);
+	}
+}
+//*/
+
+
+/*
+global protocol Proto1(role A, role B, role C)
+{
+  // Testing getAllPaths
+	choice at A
+	{
+		m1() from A to B;
+		m1() from A to C;
+		do Proto1(A, B, C);
+	}
+	or
+	{
+		m2() from A to B;
+		m2() from A to C;
+		do Proto1(A, B, C);
+	}
+}
+//*/
+
+
+/*
+// Test getAllPaths for "future" recursion
+global protocol Proto1(role A, role B, role C)
+{
+	m1() from A to B;
+	m1() from A to C;
+	do Proto1a(A, B, C);
+}
+
+aux global protocol Proto1a(role A, role B, role C)
+{
+	choice at A
+	{
+		m2() from A to B;
+		m2() from A to C;  // Comment is unfair
+		do Proto1a(A, B, C);
+	}
+	or
+	{
+		m3() from A to B;
+		m3() from A to C;
+		do Proto1a(A, B, C);
+	}
+}
+//*/
+
+
+//*
+// Test getAllPaths for "offset" recursion
+global protocol Proto1(role A, role B, role C)
+{
+	m1() from A to B;
+	m1() from A to C;
+	choice at A
+	{
+		m2() from A to B;
+		m2() from A to C;  // Comment is OK (fair)
+		do Proto1(A, B, C);
+	}
+	or
+	{
+		m3() from A to B;
+		m3() from A to C;
+		do Proto1(A, B, C);
+	}
+}
+//*/
+
+
+
 /*
 global protocol Proto1(role A, role B, role C)
 {
@@ -143,23 +231,53 @@ global protocol Proto2a(role A, role B, role C)
 //*/
 
 
-/*
-//type <dotnet> "System.UInt32" from "..." as int;
 
-global protocol Proto1(role A, role B)
+/*
+global protocol Proto1(role A, role B, role C)
 {
-	Foo() from A to B;
-	/*choice at A
-	{	
-		1() from A to B;
+	choice at A
+	{
+		m1b() from A to B;
+		m1c() from A to C;
+		do Proto2(A, B, C);
+	}
+	or 
+	{
+		m2b() from A to B;
+		m2c() from A to C;
+		do Proto3(A, B, C);
+	}
+}
+
+global protocol Proto2(role A, role B, role C)
+{
+	choice at A
+	{
+		m3b() from A to B;
+		m3c() from A to C;
+		do Proto2(A, B, C);
 	}
 	or
 	{
-		2() from A to B;
-	}* /
+		m4b() from A to B;
+		m4c() from A to C;
+	}
+}
+
+global protocol Proto3(role A, role B, role C)
+{
+	choice at A
+	{
+		m5b() from A to B;
+		do Proto3(A, B, C);
+	}
+	or
+	{
+		m5c() from A to C;
+		do Proto3(A, B, C);
+	}
 }
 //*/
-
 
 
 

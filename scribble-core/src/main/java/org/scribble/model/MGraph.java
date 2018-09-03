@@ -252,21 +252,31 @@ abstract public class MGraph
 	// Must work for start.id == end.id (i.e., cycles, not "empty path")
 	public List<List<A>> getAllPaths(S start, S end)
 	{
+		Set<S> seen = new HashSet<>();
+		seen.add(start);
+		return getAllPaths(seen, new LinkedList<>(), start, end);
+	}
+
+	public List<List<A>> getAllPaths(Set<S> seen, List<A> curr, S start, S end)
+	{
 		List<List<A>> res = new LinkedList<>();
 		for (A a : start.getAllActions())
 		{
 			S succ = start.getSuccessor(a);
+
+			List<A> tmp = new LinkedList<>(curr);
+			tmp.add(a);
+
 			if (succ.id == end.id)
 			{
-				res.add(Stream.of(a).collect(Collectors.toList()));
+				res.add(tmp);
 			}
-			else if (this.reach.get(succ).contains(end))
+
+			if (!seen.contains(succ) && this.reach.get(succ.id).contains(end.id))
 			{
-				for (List<A> p : getAllPaths(succ, end))
-				{
-					p.add(0, a);
-					res.add(p);
-				}
+				Set<S> tmp2 = new HashSet<>(seen);
+				tmp2.add(succ);
+				res.addAll(getAllPaths(tmp2, tmp, succ, end));
 			}
 		}
 		return res;

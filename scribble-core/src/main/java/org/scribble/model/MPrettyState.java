@@ -61,7 +61,7 @@ public abstract class MPrettyState
 			A a = this.actions.get(i);
 			S s = this.succs.get(i);
 			dot += "\n" + toEdgeDot(a, s);
-			if (!seen.contains(s))  // Relies on seen being aliased across calls
+			if (!seen.contains(s))  // Relies on seen being aliased across calls (cf. toAut, getReachableStates)
 			{
 				dot += "\n" + s.toDot(seen);
 			}
