@@ -125,52 +125,107 @@ public class EState extends MPrettyState<RecVar, EAction, EState, Local>
 		List<EAction> as = getActions();
 		if (kind == EStateKind.OUTPUT)
 		{
-			if (as.stream().anyMatch(a -> !a.isSend()))
+			/*if (as.stream().anyMatch(a -> !a.isSend()))
 			{
 				throw new RuntimeException("TODO: " + as);
-			}
+			}*/
 			
-			res += //"lab" + this.id + ":\n"
-					  "if\n"
-					+ as.stream().map(a ->
-							  "::\n"
-							////+ "nfull(s_" + r + "_" + a.peer + ")\n"  // CHECKME
-							+ "skip ->\n"  // Better than nfull because models commitment of process to local decision agnostically of 1-boundedness?
-							//+ "s_" + r + "_" + a.peer + "!" + a.mid + ";\n"
-							+ "atomic { s_" + r + "_" + a.peer + "!" + a.mid + "; "
-									+ (fairAndNonTermFairActions.containsKey(this.id)  // FIXME: factor out
-												? r.toString() + this.id + "_" + a.mid + " = true; "
-														//+ as.stream().filter(aa -> !a.equals(aa)).map(aa -> r.toString() + this.id + "_" + aa.mid + " = false; ").collect(Collectors.joining(""))
-															// FIXME: factor out label
-												: "") 
-									+ "empty_" + r + "_" + a.peer + " = false };\n"
-									// FIXME: factor out empty flags with GProtocolDeclDel#validateBySpin
-							+ (fairAndNonTermFairActions.containsKey(this.id)  // FIXME: factor out
-									? "if\n:: (" + fairAndNonTermFairActions.get(this.id).stream().map(aa -> r.toString() + this.id + "_" + aa.mid).collect(Collectors.joining(" && ")) + ")"
-											+ " -> atomic { " + fairAndNonTermFairActions.get(this.id).stream().map(aa -> r.toString() + this.id + "_" + aa.mid + " = false; ").collect(Collectors.joining("")) + "}\n"
-											+ ":: else -> skip\nfi;\n"
-									: "")
-							+ "goto " + getLabel(nodelabs, getSuccessor(a), r) + "\n"
-						)
-						.collect(Collectors.joining(""))
-					+ "fi\n";
+			res += "if\n";
+			for (EAction a : as)
+			{
+				if (a.isSend())
+				{
+					res +=
+									"::\n"
+								////+ "nfull(s_" + r + "_" + a.peer + ")\n"  // CHECKME
+								+ "skip ->\n"  // Better than nfull because models commitment of process to local decision agnostically of 1-boundedness?
+										// CHECKME: formal model should use such "\tau choice case commitment" for output choices?  (cf., error preservation)
+								//+ "s_" + r + "_" + a.peer + "!" + a.mid + ";\n"
+
+								+ "status_" + r + "_" + a.peer + " != -1 ->\n"
+								+ "atomic { s_" + r + "_" + a.peer + "!" + a.mid + "; "
+										+ (fairAndNonTermFairActions.containsKey(this.id)  // FIXME: factor out
+													? r.toString() + this.id + "_" + a.mid + " = true; "
+															//+ as.stream().filter(aa -> !a.equals(aa)).map(aa -> r.toString() + this.id + "_" + aa.mid + " = false; ").collect(Collectors.joining(""))
+																// FIXME: factor out label
+													: "") 
+										//+ "empty_" + r + "_" + a.peer + " = false };\n"
+										+ "status_" + r + "_" + a.peer + " = 1 };\n"
+
+										// FIXME: factor out empty flags with GProtocolDeclDel#validateBySpin
+								+ (fairAndNonTermFairActions.containsKey(this.id)  // FIXME: factor out
+										? "if\n:: (" + fairAndNonTermFairActions.get(this.id).stream().map(aa -> r.toString() + this.id + "_" + aa.mid).collect(Collectors.joining(" && ")) + ")"
+												+ " -> atomic { " + fairAndNonTermFairActions.get(this.id).stream().map(aa -> r.toString() + this.id + "_" + aa.mid + " = false; ").collect(Collectors.joining("")) + "}\n"
+												+ ":: else -> skip\nfi;\n"
+										: "")
+								+ "goto " + getLabel(nodelabs, getSuccessor(a), r) + "\n";
+				}
+				else if (a.isRequest())
+				{
+					// FIXME: factor out with above
+					res +=
+									"::\n"
+								+ "skip ->\n"  // Better than nfull because models commitment of process to local decision agnostically of 1-boundedness?
+
+								+ "(status_" + r + "_" + a.peer + " == -1) ->\n"
+								+ "atomic { sync_" + r + "_" + a.peer + "!" + a.mid + "; "
+										+ (fairAndNonTermFairActions.containsKey(this.id)
+													? r.toString() + this.id + "_" + a.mid + " = true; "
+													: "") 
+										+ "status_" + r + "_" + a.peer + " = 0 };\n"
+
+								+ (fairAndNonTermFairActions.containsKey(this.id)
+										? "if\n:: (" + fairAndNonTermFairActions.get(this.id).stream().map(aa -> r.toString() + this.id + "_" + aa.mid).collect(Collectors.joining(" && ")) + ")"
+												+ " -> atomic { " + fairAndNonTermFairActions.get(this.id).stream().map(aa -> r.toString() + this.id + "_" + aa.mid + " = false; ").collect(Collectors.joining("")) + "}\n"
+												+ ":: else -> skip\nfi;\n"
+										: "")
+								+ "goto " + getLabel(nodelabs, getSuccessor(a), r) + "\n";
+				}
+				else
+				{
+					throw new RuntimeException("Shouldn't get in here: " + a);
+				}
+			}
+			res += "fi\n";
 		}
-		else if (kind == EStateKind.UNARY_INPUT || kind == EStateKind.POLY_INPUT)
+		else if (kind == EStateKind.UNARY_INPUT || kind == EStateKind.POLY_INPUT || kind == EStateKind.ACCEPT)
 		{
-			res +=
-					  "if\n"
-					+ as.stream().map(a ->
-							  "::\n"
-							// Guard check and actual receive not atomic, but fine because binary chans are race-free
-							/*+ "r_" + a.peer + "_" + r + "?[" + a.mid + "] ->\n"
-							+ "r_" + a.peer + "_" + r + "?" + a.mid + ";\n"*/
-							+ "s_" + a.peer + "_" + r + "?[" + a.mid + "] ->\n"
-							+ "atomic { s_" + a.peer + "_" + r + "?" + a.mid + "; empty_" + a.peer + "_" + r + " = true }\n"
-									// FIXME: factor out empty flags with GProtocolDeclDel#validateBySpin
-							+ "goto " + getLabel(nodelabs, getSuccessor(a), r) + "\n"
-						)
-						.collect(Collectors.joining("")) 
-					+ "fi\n";
+			res += "if\n";
+			
+			for (EAction a : as)
+			{
+				if (a.isReceive())
+				{
+					res +=
+									"::\n"
+								// Guard check and actual receive not atomic, but fine because binary chans are race-free
+								/*+ "r_" + a.peer + "_" + r + "?[" + a.mid + "] ->\n"
+								+ "r_" + a.peer + "_" + r + "?" + a.mid + ";\n"*/
+								//+ "s_" + a.peer + "_" + r + "?[" + a.mid + "] ->\n"
+								+ "(status_" + a.peer + "_" + r + " != -1 && s_" + a.peer + "_" + r + "?[" + a.mid + "]) ->\n"
+
+								//+ "atomic { s_" + a.peer + "_" + r + "?" + a.mid + "; empty_" + a.peer + "_" + r + " = true }\n"
+								+ "atomic { s_" + a.peer + "_" + r + "?" + a.mid + "; status_" + a.peer + "_" + r + " = 0 }\n"
+
+										// FIXME: factor out empty flags with GProtocolDeclDel#validateBySpin
+								+ "goto " + getLabel(nodelabs, getSuccessor(a), r) + "\n";
+				}
+				else if (a.isAccept())
+				{
+					// FIXME: factor out with above
+					res +=
+									"::\n"
+								+ "(status_" + r + "_" + a.peer + " == -1) ->\n"  // Not guarded by "availability" of message -- cf. receive
+										// However, cases are also not "skip committed" (cf. send) -- accept state currently means every case is an accept action (not, e.g., receive)
+								+ "atomic { sync_" + a.peer + "_" + r + "?" + a.mid + "; status_" + r + "_" + a.peer + " = 0 }\n"
+								+ "goto " + getLabel(nodelabs, getSuccessor(a), r) + "\n";
+				}
+				else
+				{
+					throw new RuntimeException("Shouldn't get in here: " + a);
+				}
+			}
+			res += "fi\n";
 		}
 		else if (kind == EStateKind.TERMINAL)
 		{

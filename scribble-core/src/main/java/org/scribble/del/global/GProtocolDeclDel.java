@@ -230,11 +230,17 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 		//for (Role[] p : (Iterable<Role[]>) () -> pairs.stream().sorted().iterator())
 		for (Role[] p : pairs)  // FIXME: use a single chan, half-duplex?
 		{
-			pml += "chan s_" + p[0] + "_" + p[1] + " = [1] of { mtype };\n"  
+			pml += "chan sync_" + p[0] + "_" + p[1] + " = [0] of { mtype };\n"
+					
+					+ "chan s_" + p[0] + "_" + p[1] + " = [1] of { mtype };\n"  // FIXME: rename "s" prefix
 								// Async queue size 1 even though separate s/r chans, to work with guarded inputs
 								// But this interferes with 1-bounded (2-bounded?), and eventual stability?
 					 //+ "chan r_" + p[0] + "_" + p[1] + " = [1] of { mtype };\n"
-					 + "bool empty_" + p[0] + "_" + p[1] + " = true;\n"
+
+					 //+ "bool empty_" + p[0] + "_" + p[1] + " = true;\n"
+					+ "int status_" + p[0] + "_" + p[1] + " = "
+							+ (gpd.isExplicitModifier() ? "-1" : "0") + ";\n"  // -1 = disconnected, 0 = empty, 1 = non-empty
+
 					 /*+ "active proctype chan_" + p[0] + "_" + p[1] + "() {\n"
 					 + "mtype m;\n"
 					 + "end_chan_" + p[0] + "_" + p[1] + ":\n"
@@ -244,6 +250,7 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 					 + "atomic { r_" + p[0] + "_" + p[1] + "!m; empty_" + p[0] + "_" + p[1] + " = true }\n"
 					 + "od\n"
 					 + "}\n"*/
+
 					 ;
 		}
 		
@@ -334,7 +341,7 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 		{
 			if (termFair)
 			{
-				validateBySpinTermFair(job, fullname, gpd, rs, pairs, pml, true);
+				validateBySpinTermFair(job, fullname, gpd, rs, pairs, pml, true);  // FIXME: also use this if no recursions, if faster (since -fair irrelevant)
 			}
 			else
 			{
@@ -376,17 +383,31 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 			tmp.add(g.init);
 			tmp.addAll(MState.getReachableStates(g.init));
 
+			String curr = null;
 			if (g.term != null)
 			{
-				clauses.add(r + "@" + getPmlLabel(r, g.term));
+				//clauses.add(r + "@" + getPmlLabel(r, g.term));
+				curr = r + "@" + getPmlLabel(r, g.term);
 				tmp.remove(g.term);
 			}
-			tmp.forEach(s ->  // Throws exception, cannot use flatMap
+			for (EState s : tmp)  // Throws exception, cannot use flatMap
 			{
 				EStateKind kind = s.getStateKind();
 				if (kind == EStateKind.UNARY_INPUT || kind == EStateKind.POLY_INPUT)  // FIXME: include outputs due to bounded model?  or subsumed by eventual stability
 				{
-					//clauses.add("!<>[]" + r + "@" + getPmlLabel(r, s));  // FIXME: factor out label
+					//clauses.add("!<>[]" + r + "@" + getPmlLabel(r, s));  // FIXME: factor out label  // Now done in via term states (above)
+				}
+				else if (kind == EStateKind.ACCEPT)  // FIXME: some "accept states" should not be accepting, e.g., A->>B.A->B -- but any error would come out in the wash at some other role?
+				{
+					if (curr == null)
+					{
+						curr = "";
+					}
+					else
+					{
+						curr += " || ";
+					}
+					curr += r + "@" + getPmlLabel(r, s);
 				}
 				else if (kind != EStateKind.OUTPUT && kind != EStateKind.TERMINAL)
 				{
@@ -400,12 +421,18 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 						fairChoices.add("!" + r + "@" + getPmlLabel(r, s));  // FIXME: factor out label
 					}
 				}
-			});
+			}
+
+			clauses.add("(" + curr + ")");
 		}
 		String eventualStability = "";
 		for (Role[] p : pairs)
 		{
-			eventualStability += (((eventualStability.isEmpty()) ? "" : " && ") + "empty_" + p[0] + "_" + p[1]);  // "eventual reception", not eventual stability
+			eventualStability += (((eventualStability.isEmpty()) ? "" : " && ")
+					//+ "empty_" + p[0] + "_" + p[1]);  // "eventual reception", not eventual stability
+					+ "(status_" + p[0] + "_" + p[1] + " <= 0)");  // "eventual reception", not eventual stability
+							// FIXME: tie 0 case more specifically to end state; and -1 case may be end or accepting states
+
 					// FIXME: eventual stability too strong -- can be violated by certain interleavings keeping alternate queues non-empty
 					// N.B. "fairness" fixes the above for recursions-with-exits, since exit always eventually taken (so, eventual stable termination)
 		}
@@ -469,7 +496,7 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 					clauses.add("<>!" + r + "@" + getPmlLabel(r, s));  // [] will be added to whole batch  // FIXME: factor out label
 							// FIXME: refine clause by whether state is fair+end-reachable, or otherwise (e.g., term set)?
 				}
-				else if (kind != EStateKind.OUTPUT && kind != EStateKind.TERMINAL)
+				else if (kind != EStateKind.OUTPUT && kind != EStateKind.TERMINAL && kind != EStateKind.ACCEPT)  // All "accept states" allowed to be accepting
 				{
 					throw new RuntimeException("[-spin] TODO: " + kind);
 				}
@@ -516,7 +543,9 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 			//eventualStability += (((eventualStability.isEmpty()) ? "" : " && ") + "empty_" + p[0] + "_" + p[1]);
 					// FIXME: eventual stability too strong -- can be violated by certain interleavings keeping alternate queues non-empty
 					// N.B. "fairness" fixes the above for recursions-with-exits, since exit always eventually taken (so, eventual stable termination)*/
-			String eventualReception = "<>empty_" + p[0] + "_" + p[1];  // [] will be added to whole batch
+			//String eventualReception = "<>empty_" + p[0] + "_" + p[1];  // [] will be added to whole batch
+			String eventualReception = "<>(status_" + p[0] + "_" + p[1] + " <= 0)";  // [] will be added to whole batch
+
 			clauses.add(eventualReception);
 					// N.B. "LTL eventual-reception" not technically comparable to "CTL eventual-stability"?  but OK for MPST safety/prog
 					// CHECKME: model could be restricted to support eventual stability with extra conditions, e.g., "eager" eating? -- cf. compat side conditions
@@ -616,7 +645,8 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 					i++;
 				}
 				int dnfair = (procs <= 6) ? 2 : 3;  // FIXME
-				res = ScribUtil.runProcess("gcc", "-o", "pan", "pan.c", "-DNFAIR=" + dnfair);
+				res = ScribUtil.runProcess("gcc", "-o", "pan", "pan.c", "-DNFAIR=" + dnfair, "-DNOREDUCE");
+						// FIXME: -DNOREDUCE "p.o. reduction not compatible with fairness (-f) in models with rendezvous operations" -- change connection establishment to async-ack
 				res[0] = res[0].trim();
 				res[1] = res[1].trim();
 				if (!res[0].isEmpty() || !res[1].isEmpty())

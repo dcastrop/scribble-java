@@ -16,9 +16,11 @@ package org.scribble.del;
 import org.scribble.ast.ConnectionAction;
 import org.scribble.ast.ScribNode;
 import org.scribble.main.ScribbleException;
+import org.scribble.type.name.MessageId;
 import org.scribble.visit.InlinedProtocolUnfolder;
 import org.scribble.visit.ProtocolDefInliner;
 import org.scribble.visit.env.UnfoldingEnv;
+import org.scribble.visit.util.MessageIdCollector;
 import org.scribble.visit.util.RoleCollector;
 
 // FIXME: factor with MessageTransferDel
@@ -63,10 +65,10 @@ public abstract class ConnectionActionDel extends SimpleInteractionNodeDel
 		return visited;
 	}
 
-	/*@Override
+	@Override
 	public ScribNode leaveMessageIdCollection(ScribNode parent, ScribNode child, MessageIdCollector coll, ScribNode visited)
 	{
-		Connect<?> c = (Connect<?>) visited;
+		ConnectionAction<?> c = (ConnectionAction<?>) visited;
 		if (c.msg.isMessageSigNode() || c.msg.isMessageSigNameNode())
 		{
 			coll.addName((MessageId<?>) c.msg.toMessage().getId());
@@ -76,7 +78,7 @@ public abstract class ConnectionActionDel extends SimpleInteractionNodeDel
 			throw new RuntimeException("Shouldn't get in here: " + c.msg);
 		}
 		return visited;
-	}*/
+	}
 
 	/*@Override
 	public ScribNode leaveEnablingMessageCollection(ScribNode parent, ScribNode child, EnablingMessageCollector coll, ScribNode visited)

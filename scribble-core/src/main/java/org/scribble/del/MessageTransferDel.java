@@ -70,6 +70,7 @@ public abstract class MessageTransferDel extends SimpleInteractionNodeDel
 		return visited;
 	}
 
+	// Factor out with ConnectionActionDel?
 	@Override
 	public ScribNode leaveMessageIdCollection(ScribNode parent, ScribNode child, MessageIdCollector coll, ScribNode visited)
 	{
