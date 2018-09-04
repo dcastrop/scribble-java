@@ -34,7 +34,7 @@ module tmp.Test;
 
 
 
-/*
+//*
 global protocol Proto1(role A, role B, role C)
 {
 	choice at A
@@ -161,16 +161,16 @@ aux global protocol Proto1a(role A, role B, role C)
 //*/
 
 
-//*
+/*
 // Test getAllPaths for "offset" recursion
 global protocol Proto1(role A, role B, role C)
 {
 	m1() from A to B;
 	m1() from A to C;
-	choice at A
+	choice at A  // TODO: test offset recursion with nested choice with different subject role 
 	{
 		m2() from A to B;
-		m2() from A to C;  // Comment is OK (fair)
+		//m2() from A to C;  // Comment is OK (fair)
 		do Proto1(A, B, C);
 	}
 	or
@@ -249,7 +249,7 @@ global protocol Proto1(role A, role B, role C)
 	}
 }
 
-global protocol Proto2(role A, role B, role C)
+aux global protocol Proto2(role A, role B, role C)
 {
 	choice at A
 	{
@@ -264,7 +264,7 @@ global protocol Proto2(role A, role B, role C)
 	}
 }
 
-global protocol Proto3(role A, role B, role C)
+aux global protocol Proto3(role A, role B, role C)
 {
 	choice at A
 	{

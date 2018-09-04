@@ -19,6 +19,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -260,12 +261,12 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 				// For all endpoints, state id's globally unique
 				// Empty means non-fair, or term-fair, or no poly output choice paths to treat
 				// "Distinguishing" action may be an input, e.g., rec X { A->B.X + A->B.(B->A.X + B->A.X) } -- "duplicate" treatment at A's and B's output choices (necessary)  
-						// FIXME: work out "recursion decision actions" properly, e.g., rec X { A->B . (B->A.X + B->A) }, "decision state" is at B (not A)
+						// FIXME: work out "recursion decision actions" properly, e.g., rec X { A->B . (B->A.X + B->A.X) }, "decision state" is only at B (not also A, unlike above) -- N.B. a rec may have multiple different decision roles (e.g., above example, both A and B)
 		Map<Integer, List<EAction>> fairAndNonTermFairActions2 = new HashMap<>();   
 				// Above has output choice state as key; here is the "actual" action state (may be different)
 				// FIXME #2 is now redundant (info is in #1)
 
-		System.out.println("1111: " + termFair);
+		//System.out.println("1111: " + termFair);
 		
 		for (Role r : rs)
 		{
@@ -524,7 +525,7 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 		//eventualStability = "[]<>(" + eventualStability + ")";
 		clauses.add(eventualStability);*/
 
-		Map<String, String> props = new HashMap<>();
+		Map<String, String> props = new LinkedHashMap<>();
 		//int batchSize = 10;  // FIXME: factor out
 		int batchSize = 1;  // FIXME: factor out  
 				// FIXME: dynamic batch sizing based on previous batch duration?  

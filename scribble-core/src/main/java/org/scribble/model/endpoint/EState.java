@@ -67,19 +67,25 @@ public class EState extends MPrettyState<RecVar, EAction, EState, Local>
 			return "";
 		}*/
 		
+		// Order not really important except init needs to come first
+		if (seen.contains(this.id))
+		{
+			return "";
+		}
+		seen.add(this.id);
+		String pml = nodeToPml(nodelabs, r, fairAndNonTermFairActions);
+		
 		// Cf. MPrettyState.toAut
-		Set<EState> allExceptTerm = new HashSet<>();
-		allExceptTerm.add(this);
-		allExceptTerm.addAll(getReachableStates(this));
+		Set<EState> reacchExceptTerm = new HashSet<>();
+		reacchExceptTerm.addAll(getReachableStates(this));
 		EState term = MState.getTerminal(this);
 		if (term != null)
 		{
-			allExceptTerm.remove(term);
+			reacchExceptTerm.remove(term);
 		}
-		String aut = "";
 		//int edges = 0;
 		//Set<Integer> seen = new HashSet<>();
-		for (EState s : allExceptTerm)
+		for (EState s : reacchExceptTerm)
 		{
 			if (seen.contains(s.id))
 			{
@@ -98,13 +104,13 @@ public class EState extends MPrettyState<RecVar, EAction, EState, Local>
 				//String msg = a.toStringWithMessageIdHack();  // HACK
 				aut += succ.nodeToPml(nodelabs, r, fairAndNonTermFairActions);
 			}*/
-			aut += "\n" + s.nodeToPml(nodelabs, r, fairAndNonTermFairActions);
+			pml += "\n" + s.nodeToPml(nodelabs, r, fairAndNonTermFairActions);
 		}
 		if (term != null)
 		{
-			aut += "\n" + term.nodeToPml(nodelabs, r, fairAndNonTermFairActions);  // Must come at end, just does skip
+			pml += "\n" + term.nodeToPml(nodelabs, r, fairAndNonTermFairActions);  // Must come at end, just does skip
 		}
-		return aut;
+		return pml;
 	}
 		
 	private String nodeToPml(Map<Integer, String> nodelabs, Role r, Map<Integer, List<EAction>> fairAndNonTermFairActions)	
