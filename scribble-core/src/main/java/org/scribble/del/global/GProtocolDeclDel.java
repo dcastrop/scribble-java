@@ -440,25 +440,33 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 
 		Map<String, String> props = new HashMap<>();
 		int batchSize = 999999;  // FIXME: remove batching, redundant here
-		for (int i = 0, k = 1; i < clauses.size(); k++)
+		if (!fair)  // Currently redundant (and incorrect, for term-fair)
 		{
-			int j = (i+batchSize < clauses.size()) ? i+batchSize : clauses.size();
-			String batch = "<>[](" + clauses.subList(i, j).stream().collect(Collectors.joining(" && ")) + ")";
-			String ltl =
-					  "ltl p" + k + " {\n"
-					+ ((fair && !fairChoices.isEmpty()) ? "<>[](" + fairChoices.stream().map(c -> c.toString()).collect(Collectors.joining(" && ")) + ")\n->\n" : "")  // FIXME: filter by batching? -- optimise batches more "semantically"?
-							// OK, a -> (b && c) = (a -> b) && (a -> c)
-					//+ "(" + batch + ")"
-					+ batch
-					+ "\n" + "}";
-			if (job.debug)
+			for (int i = 0, k = 1; i < clauses.size(); k++)
 			{
-				System.out.println("[-spin] Batched ltl:\n" + ltl + "\n");
+				int j = (i+batchSize < clauses.size()) ? i+batchSize : clauses.size();
+				String batch = "<>"//[]  // CHEKME: <>[]p holds for all p (including false) if process stuck?  (<>[]p && !<>[]p && <>[]!p && ...)
+						+ "(" + clauses.subList(i, j).stream().collect(Collectors.joining(" && ")) + ")";
+				String ltl =
+							"ltl p" + k + " {\n"
+						+ ((fair && !fairChoices.isEmpty()) ? "<>[](" + fairChoices.stream().map(c -> c.toString()).collect(Collectors.joining(" && ")) + ")\n->\n" : "")  // FIXME: filter by batching? -- optimise batches more "semantically"?
+								// OK, a -> (b && c) = (a -> b) && (a -> c)
+						//+ "(" + batch + ")"
+						+ batch
+						+ "\n" + "}";
+				if (job.debug)
+				{
+					System.out.println("[-spin] Batched ltl:\n" + ltl + "\n");
+				}
+
+				props.put("p" + k, ltl);  // Factour out prop name
+
+				i += batchSize;
 			}
-
-			props.put("p" + k, ltl);  // Factour out prop name
-
-			i += batchSize;
+		}
+		else
+		{
+			// Default spin check checks term reachable (i.e., "fair choices"?) and safe
 		}
 
 		pml += props.values().stream().map(v -> "\n\n" + v).collect(Collectors.joining(""));
@@ -653,27 +661,28 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 				{
 					throw new RuntimeException("[-spin] [gcc]: " + res[0] + "\n\n" + res[1]);
 				}
-				for (String prop : props)
+				if (props.isEmpty())
 				{
-					if (job.debug)
+						if (job.debug)
+						{
+							System.out.println("[-spin] [pan] Verifying -a -f -q:");
+						}
+						res = ScribUtil.runProcess("pan", "-a", "-f", "-q");
+						return checkSpinResult(res);
+				}
+				else
+				{
+					for (String prop : props)
 					{
-						System.out.println("[-spin] [pan] Verifying " + prop + ":");
-					}
-					res = ScribUtil.runProcess("pan", "-a", "-f", "-N", prop);
-					res[1] = res[1].replace("warning: no accept labels are defined, so option -a has no effect (ignored)", "");
-					res[1] = res[1].replace("warning: only one claim defined, -N ignored", "");
-					res[0] = res[0].trim();
-					res[1] = res[1].trim();
-					if (res[0].contains("error,") || !res[1].isEmpty())
-					{
-						throw new RuntimeException("[-spin] [pan]: " + res[0] + "\n\n" + res[1]);
-					}
-					int err = res[0].indexOf("errors: ");
-					boolean valid = (res[0].charAt(err + 8) == '0');
-					if (!valid)
-					{
-						System.err.println("[-spin] [pan] " + res[0] + "\n\n" + res[1]);
-						return false;
+						if (job.debug)
+						{
+							System.out.println("[-spin] [pan] Verifying -a -f -N " + prop + ":");
+						}
+						res = ScribUtil.runProcess("pan", "-a", "-f", "-N", prop);
+						if (!checkSpinResult(res))
+						{
+							return false;
+						}
 					}
 				}
 				return true;  // All props valid
@@ -691,6 +700,26 @@ public class GProtocolDeclDel extends ProtocolDeclDel<Global>
 		{
 			throw new RuntimeException(e);
 		}
+	}
+
+	private static boolean checkSpinResult(String[] res)
+	{
+		res[1] = res[1].replace("warning: no accept labels are defined, so option -a has no effect (ignored)", "");
+		res[1] = res[1].replace("warning: only one claim defined, -N ignored", "");
+		res[0] = res[0].trim();
+		res[1] = res[1].trim();
+		if (res[0].contains("error,") || !res[1].isEmpty())
+		{
+			throw new RuntimeException("[-spin] [pan]: " + res[0] + "\n\n" + res[1]);
+		}
+		int err = res[0].indexOf("errors: ");
+		boolean valid = (res[0].charAt(err + 8) == '0');
+		if (!valid)
+		{
+			System.err.println("[-spin] [pan] " + res[0] + "\n\n" + res[1]);
+			return false;
+		}
+		return true;
 	}
 
 	/*// FIXME: move

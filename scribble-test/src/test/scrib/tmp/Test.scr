@@ -34,7 +34,60 @@ module tmp.Test;
 
 
 
+/*
+global protocol Proto1(role A, role B, role C)
+{
+	choice at A
+	{
+		m1() from A to B;
+		do Proto1(A, B, C);
+	}
+	or
+	{
+		m2() from A to B;
+		m3() from A to C;
+	}
+	or
+	{
+		m4() from A to B;
+		m5() from A to C;
+	}
+}
+//*/
+
+
 //*
+explicit global protocol Proto1(role A, role B, role C)
+{
+	m0() connect A to B;
+	//m0() connect A to C;  // Bad if uncommented (with below)
+	do Proto1a(A, B, C);
+}
+
+aux explicit global protocol Proto1a(role A, role B, role C)
+{
+	choice at A
+	{
+		m1() from A to B;
+		//m2() from B to A;
+		do Proto1a(A, B, C);
+	}
+	or
+	{
+		m3() from A to B;
+		m4() connect A to C;
+		m4() from A to C;
+		m5() from C to A;
+	}
+	or
+	{
+		m6() from A to B;
+	}
+}
+//*/
+
+
+/*
 explicit global protocol Proto1(role A, role B, role C)
 {
 	m1() connect A to B;
