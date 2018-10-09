@@ -34,7 +34,7 @@ module tmp.Test;
 
 
 
-//*
+/*
 global protocol Proto1(role A, role B, role C)
 {
 	choice at A
@@ -58,7 +58,7 @@ global protocol Proto1(role A, role B, role C)
 //*/
 
 
-/*
+//*
 explicit global protocol Proto1(role A, role B, role C)
 {
 	m0() connect A to B;

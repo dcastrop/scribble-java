@@ -217,7 +217,7 @@ public class EState extends MPrettyState<RecVar, EAction, EState, Local>
 									"::\n"
 								+ "(status_" + r + "_" + a.peer + " == -1) ->\n"  // Not guarded by "availability" of message -- cf. receive
 										// However, cases are also not "skip committed" (cf. send) -- accept state currently means every case is an accept action (not, e.g., receive)
-								+ "end" + r + this.id + ":\n"  // FIXME: not all accept-states should be accepting
+								+ "end" + r + this.id + ":\n"  // FIXME: not all accept-states should be accepting, e.g., a "mid-session" accept
 								+ "atomic { sync_" + a.peer + "_" + r + "?" + a.mid + "; status_" + r + "_" + a.peer + " = 0 }\n"
 								+ "goto " + getLabel(nodelabs, getSuccessor(a), r) + "\n";
 				}
