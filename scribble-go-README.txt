@@ -5,8 +5,9 @@ README for Scribble-Go
 Scribble-Go is a WIP offshoot of the Scribble toolchain for practical
 MPST-based protocol specification and distributed endpoint programming.
 
-Details about the original paper and tool artifact (both published at POPL 19)
-can be found here:
+Details about the original paper and tool artifact, both published at POPL 19
+(authors: David Castro, Raymond Hu, Nicholas Ng, Sung-Shik Jongmans and Nobuko
+Yoshida) can be found here:
 
     http://mrg.doc.ic.ac.uk/tools/scribble-go/
 
