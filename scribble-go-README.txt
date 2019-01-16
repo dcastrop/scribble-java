@@ -7,7 +7,7 @@ MPST-based protocol specification and distributed endpoint programming.
 
 Details about the original paper and tool artifact, both published at POPL 19
 (authors: David Castro, Raymond Hu, Nicholas Ng, Sung-Shik Jongmans and Nobuko
-Yoshida) can be found here:
+Yoshida), can be found here:
 
     http://mrg.doc.ic.ac.uk/tools/scribble-go/
 
