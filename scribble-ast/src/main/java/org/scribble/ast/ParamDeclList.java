@@ -49,8 +49,7 @@ public abstract class ParamDeclList<K extends ParamKind> extends ScribNodeBase
 	@Override
 	public abstract ParamDeclList<K> dupNode();
 	
-	public ParamDeclList<K> reconstruct(
-			List<? extends ParamDecl<K>> ds)
+	public ParamDeclList<K> reconstruct(List<? extends ParamDecl<K>> ds)
 	{
 		ParamDeclList<K> dup = dupNode();
 		dup.addScribChildren(ds);

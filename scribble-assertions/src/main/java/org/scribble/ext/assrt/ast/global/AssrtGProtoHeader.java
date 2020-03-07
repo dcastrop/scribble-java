@@ -1,5 +1,9 @@
 package org.scribble.ext.assrt.ast.global;
 
+import java.util.LinkedList;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.antlr.runtime.Token;
 import org.scribble.ast.NonRoleParamDeclList;
 import org.scribble.ast.ProtoHeader;
@@ -9,6 +13,7 @@ import org.scribble.ast.name.qualified.ProtoNameNode;
 import org.scribble.core.type.kind.Global;
 import org.scribble.del.DelFactory;
 import org.scribble.ext.assrt.ast.AssrtBExprNode;
+import org.scribble.ext.assrt.ast.AssrtLocatedStateVarDeclList;
 import org.scribble.ext.assrt.ast.AssrtStateVarDeclList;
 import org.scribble.ext.assrt.ast.AssrtStateVarDeclNode;
 import org.scribble.ext.assrt.del.AssrtDelFactory;
@@ -34,9 +39,19 @@ public class AssrtGProtoHeader extends GProtoHeader
 		super(node);
 	}
 
+	public boolean isLocated()
+	{
+		return getChild(
+				ASSRT_STATEVARDECLLIST_CHILD_INDEX) instanceof AssrtLocatedStateVarDeclList;
+	}
+
 	@Override
 	public AssrtStateVarDeclList getStateVarDeclListChild()
 	{
+		if (isLocated())
+		{
+			throw new RuntimeException("Shouldn't get in here: ");
+		}
 		return (AssrtStateVarDeclList) getChild(ASSRT_STATEVARDECLLIST_CHILD_INDEX);
 	}
 
@@ -44,7 +59,24 @@ public class AssrtGProtoHeader extends GProtoHeader
 	@Override
 	public AssrtBExprNode getAnnotAssertChild()
 	{
+		if (isLocated())
+		{
+			throw new RuntimeException("Shouldn't get in here: ");
+		}
 		return (AssrtBExprNode) getChild(ASSRT_ASSERTION_CHILD_INDEX);
+	}
+
+	public List<AssrtLocatedStateVarDeclList> getLocatedStateVarDeclListChildren()
+	{
+		if (!isLocated())
+		{
+			throw new RuntimeException("Shouldn't get in here: ");
+		}
+		return getChildren().stream()
+				.skip(ASSRT_STATEVARDECLLIST_CHILD_INDEX)
+				.limit(getChildCount() - ASSRT_STATEVARDECLLIST_CHILD_INDEX)
+				.map(x -> (AssrtLocatedStateVarDeclList) x)
+				.collect(Collectors.toList());
 	}
 
 	// "add", not "set"
@@ -57,6 +89,15 @@ public class AssrtGProtoHeader extends GProtoHeader
 		addChild(svars);
 		addChild(ass);
 		//addChildren(sexprs);
+	}
+
+	public void addScribChildren(ProtoNameNode<Global> name,
+			NonRoleParamDeclList ps, RoleDeclList rs,
+			List<AssrtLocatedStateVarDeclList> svars)
+	{
+		// Cf. above getters and Scribble.g children order
+		super.addScribChildren(name, ps, rs);
+		addChildren(svars);
 	}
 	
 	@Override
@@ -80,23 +121,46 @@ public class AssrtGProtoHeader extends GProtoHeader
 		dup.setDel(del());  // No copy
 		return dup;
 	}
+
+	public AssrtGProtoHeader reconstruct(ProtoNameNode<Global> name,
+			NonRoleParamDeclList ps, RoleDeclList rs,
+			List<AssrtLocatedStateVarDeclList> svars)
+	{
+		AssrtGProtoHeader dup = dupNode();
+		dup.addScribChildren(name, ps, rs, svars);
+		dup.setDel(del());  // No copy
+		return dup;
+	}
 	
 	@Override
 	public GProtoHeader visitChildren(AstVisitor v) throws ScribException
 	{
 		ProtoHeader<Global> sup = super.visitChildren(v);
-		AssrtStateVarDeclList svars = getStateVarDeclListChild();
-		if (svars != null)  // CHECKME: now never null? (or shouldn't be?)
+		if (!isLocated())
 		{
-			svars = (AssrtStateVarDeclList) visitChild(svars, v);
+			AssrtStateVarDeclList svars = getStateVarDeclListChild();
+			if (svars != null)  // CHECKME: now never null? (or shouldn't be?)
+			{
+				svars = (AssrtStateVarDeclList) visitChild(svars, v);
+			}
+			AssrtBExprNode ass = getAnnotAssertChild();
+			if (ass != null)
+			{
+				ass = (AssrtBExprNode) visitChild(ass, v);
+			}
+			return reconstruct(sup.getNameNodeChild(), sup.getParamDeclListChild(),
+					sup.getRoleDeclListChild(), svars, ass);//, sexprs);
 		}
-		AssrtBExprNode ass = getAnnotAssertChild();
-		if (ass != null) 
+		else
 		{
-			ass = (AssrtBExprNode) visitChild(ass, v);
+			List<AssrtLocatedStateVarDeclList> svars = new LinkedList<>();
+			for (AssrtLocatedStateVarDeclList x : getLocatedStateVarDeclListChildren())
+			{
+				svars.add((AssrtLocatedStateVarDeclList) visitChild(x, v));
+			}
+			return reconstruct(sup.getNameNodeChild(), sup.getParamDeclListChild(),
+					sup.getRoleDeclListChild(), svars);
 		}
-		return reconstruct(sup.getNameNodeChild(), sup.getParamDeclListChild(),
-				sup.getRoleDeclListChild(), svars, ass);//, sexprs);
 	}
 	
 	@Override

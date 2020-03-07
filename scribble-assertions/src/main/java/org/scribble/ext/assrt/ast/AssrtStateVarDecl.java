@@ -31,7 +31,7 @@ public class AssrtStateVarDecl extends ParamDecl<AssrtIntVarKind>
 {
 	//public static final int NAMENODE_CHILD_INDEX = 0;  // Cf. NameDeclNode
 	public static final int ASSRT_STATEVAREXPR_CHILD_INDEX = 1;
-	public static final int ASSRT_ROLE_CHILD_INDEX = 2;  // null means "all roles" ("global" statevar) -- back compat
+	public static final int ASSRT_ROLE_CHILD_INDEX = 2;  // FIXME: deprecate // null means "all roles" ("global" statevar) -- back compat
 	// Cf. AssrtGMsgTransfer.DST_CHILD_INDEX, RoleNode
 
 	// ScribTreeAdaptor#create constructor

@@ -17,31 +17,48 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.antlr.runtime.Token;
+import org.scribble.ast.ParamDecl;
 import org.scribble.ast.ParamDeclList;
+import org.scribble.ast.name.simple.RoleNode;
 import org.scribble.del.DelFactory;
 import org.scribble.ext.assrt.core.type.kind.AssrtIntVarKind;
 import org.scribble.ext.assrt.del.AssrtDelFactory;
+import org.scribble.util.ScribException;
+import org.scribble.visit.AstVisitor;
 
 
-public class AssrtStateVarDeclList extends ParamDeclList<AssrtIntVarKind>
+public class AssrtLocatedStateVarDeclList extends ParamDeclList<AssrtIntVarKind>
 {
 	// ScribTreeAdaptor#create constructor
-	public AssrtStateVarDeclList(Token t)
+	public AssrtLocatedStateVarDeclList(Token t)
 	{
 		super(t);
 	}
 
 	// Tree#dupNode constructor
-	public AssrtStateVarDeclList(AssrtStateVarDeclList node)
+	public AssrtLocatedStateVarDeclList(AssrtLocatedStateVarDeclList node)
 	{
 		super(node);
+	}
+
+	public RoleNode getRoleChild()  // HACK TODO refactor
+	{
+		return (RoleNode) getChild(0);
 	}
 
 	@Override
 	public List<AssrtStateVarDecl> getDeclChildren()
 	{
-		return getChildren().stream().map(x -> (AssrtStateVarDecl) x)
+		return getChildren().stream()
+				.skip(1)
+				.limit(getChildCount() - 2)
+				.map(x -> (AssrtStateVarDecl) x)
 				.collect(Collectors.toList());
+	}
+
+	public AssrtBExprNode getAnnotAssertChild()  // Cf. AssrtGProtoHeader
+	{
+		return (AssrtBExprNode) getChild(getChildCount() - 1);
 	}
 
 	/*public List<AssrtIntVar> getIntVars()
@@ -49,23 +66,72 @@ public class AssrtStateVarDeclList extends ParamDeclList<AssrtIntVarKind>
 		return getDeclChildren().stream().map(x -> x.getDeclName())
 				.collect(Collectors.toList());
 	}*/
-	
+
 	@Override
-	public AssrtStateVarDeclList dupNode()
+	public void addScribChildren(
+			List<? extends ParamDecl<? extends AssrtIntVarKind>> ds)
 	{
-		return new AssrtStateVarDeclList(this);
+		throw new RuntimeException("Shouldn't get in here: " + this);
+	}
+
+	// "add", not "set"
+	public void addScribChildren(RoleNode role, List<AssrtStateVarDecl> ds,
+			AssrtBExprNode bexpr)
+	{
+		// Cf. above getters and Scribble.g children order
+		super.addChild(role);
+		super.addChildren(ds);
+		super.addChild(bexpr);
 	}
 	
 	@Override
+	public AssrtLocatedStateVarDeclList dupNode()
+	{
+		return new AssrtLocatedStateVarDeclList(this);
+	}
+
+	@Override
+	public ParamDeclList<AssrtIntVarKind> reconstruct(
+			List<? extends ParamDecl<AssrtIntVarKind>> ds)
+	{
+		throw new RuntimeException("Shouldn't get in here: " + this);
+	}
+	
+	public AssrtLocatedStateVarDeclList reconstruct(
+			RoleNode role, List<AssrtStateVarDecl> ds, AssrtBExprNode bexpr)
+	{
+		AssrtLocatedStateVarDeclList dup = dupNode();
+		dup.addScribChildren(role, ds, bexpr);
+		dup.setDel(del());  // No copy
+		return dup;
+	}
+
+	@Override
+	public AssrtLocatedStateVarDeclList visitChildren(AstVisitor v)
+			throws ScribException
+	{
+		RoleNode role = (RoleNode) visitChild(getRoleChild(), v);
+		List<AssrtStateVarDecl> ps = visitChildListWithClassEqualityCheck(this,
+				getDeclChildren(), v);
+		AssrtBExprNode ass = getAnnotAssertChild();
+		if (ass != null)
+		{
+			ass = (AssrtBExprNode) visitChild(ass, v);
+		}
+		return reconstruct(role, ps, ass);
+	}
+
+	@Override
 	public void decorateDel(DelFactory df)
 	{
-		((AssrtDelFactory) df).AssrtStateVarDeclList(this);
+		((AssrtDelFactory) df).AssrtLocatedStateVarDeclList(this);
 	}
 
 	@Override
 	public String toString()
 	{
-		return "<" + super.toString() + ">";
+		return getRoleChild() + "<" + super.toString() + ">"
+				+ getAnnotAssertChild();
 	}
 }
 

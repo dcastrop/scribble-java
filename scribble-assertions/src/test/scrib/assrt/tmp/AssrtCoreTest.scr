@@ -170,10 +170,17 @@ type <dotnet> "System.String" from "..." as String;
 // - fix syntax -- TODO: deprecate AssrtStateVarAnnotNode for an intermediary CommonTree
 // - deprecate "constant propagation" -- prevents loops counting or any example where assertion not valid now under constant but could be later -- now: restored
 
+
+
+global protocol Proto1(role A, role B) @'A:<x:=1> true, B:<x:=1> true' {
+}
+
+/*
 global protocol Proto1(role A, role B) @'<xA:A=1, xB:B=1>' {
 	1() from A to B;
-	do Proto1(A, B); @'<xA, xB>'
+	do Proto1(A, B); @'<xA, xB>'  // FIXME: projected-inlined has sexprs on recvar, but svars on the proto (not the rec)
 }
+*/
 
 /*
 global protocol Proto1(role A, role B, role C) {

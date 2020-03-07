@@ -64,6 +64,8 @@ tokens
 	ASSRT_STATEVARDECL_LIST;
 	ASSRT_STATEVARDECL;
 	ASSRT_STATEVARARG_LIST;
+
+	ASSRT_LOCATEDSTATEVARDECLLIST;
 	
 	/*UNFUN;
 	UNFUNARGLIST;*/
@@ -366,6 +368,16 @@ assrt_headerannot:
 	assrt_statevardecls bool_expr?
 ->
 	^(ASSRT_HEADERANNOT assrt_statevardecls bool_expr?)  // bool_expr parsed to AssrtBExprNode by parseStateVarHeader
+|
+	assrt_locatedstatevardecls (',' assrt_locatedstatevardecls)*
+->
+	^(ASSRT_HEADERANNOT assrt_locatedstatevardecls+)
+;
+
+assrt_locatedstatevardecls:
+	rolename '<' assrt_statevardecl (',' assrt_statevardecl)* '>' bool_expr?
+->
+	^(ASSRT_LOCATEDSTATEVARDECLLIST rolename assrt_statevardecl+ bool_expr?)
 ;
 
 assrt_statevardecls:
