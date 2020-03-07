@@ -41,7 +41,7 @@ public class AssrtLocatedStateVarDeclList extends ParamDeclList<AssrtIntVarKind>
 		super(node);
 	}
 
-	public RoleNode getRoleChild()  // HACK TODO refactor
+	public RoleNode getRoleChild()  // TODO refactor
 	{
 		return (RoleNode) getChild(0);
 	}

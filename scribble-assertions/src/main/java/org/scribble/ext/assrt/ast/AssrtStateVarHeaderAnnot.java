@@ -1,5 +1,9 @@
 package org.scribble.ext.assrt.ast;
 
+import java.util.LinkedList;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.antlr.runtime.Token;
 import org.scribble.ast.ScribNodeBase;
 import org.scribble.del.DelFactory;
@@ -7,7 +11,7 @@ import org.scribble.ext.assrt.del.AssrtDelFactory;
 import org.scribble.util.ScribException;
 import org.scribble.visit.AstVisitor;
 
-// Currently serves as an "intemediary" parse object between Assertions.g and
+// Currently serves as an "intermediary" parse object between Assertions.g and
 // AssrtScribble.g
 // Finally, AssrtGProtoHeader retains only the statevardecllist and assertion,
 // not this headerannot itself
@@ -40,15 +44,38 @@ public class AssrtStateVarHeaderAnnot extends ScribNodeBase
 		super(node);
 	}
 
+	public boolean isLocated()
+	{
+		return getChild(0) instanceof AssrtLocatedStateVarDeclList;
+	}
+
 	public AssrtStateVarDeclList getStateVarDeclListChild()
 	{
+		if (isLocated())
+		{
+			throw new RuntimeException("Shouldn't get in here: " + this);
+		}
 		return (AssrtStateVarDeclList) getChild(ASSRT_STATEVARDECLLIST_CHILD_INDEX);
 	}
 
 	// N.B. null if not specified -- currently duplicated from AssrtGMessageTransfer
 	public AssrtBExprNode getAnnotAssertChild()
 	{
+		if (isLocated())
+		{
+			throw new RuntimeException("Shouldn't get in here: " + this);
+		}
 		return (AssrtBExprNode) getChild(ASSRT_ASSERTION_CHILD_INDEX);
+	}
+
+	public List<AssrtLocatedStateVarDeclList> getLocatedStateVarDeclListChildren()
+	{
+		if (!isLocated())
+		{
+			throw new RuntimeException("Shouldn't get in here: " + this);
+		}
+		return getChildren().stream().map(x -> (AssrtLocatedStateVarDeclList) x)
+				.collect(Collectors.toList());
 	}
 
 	// "add", not "set"
@@ -57,6 +84,12 @@ public class AssrtStateVarHeaderAnnot extends ScribNodeBase
 		// Cf. above getters
 		addChild(svars);
 		addChild(ass);
+	}
+
+	public void addScribChildren(List<AssrtLocatedStateVarDeclList> svars)
+	{
+		// Cf. above getters
+		addChildren(svars);
 	}
 	
 	@Override
@@ -80,26 +113,50 @@ public class AssrtStateVarHeaderAnnot extends ScribNodeBase
 		return dup;
 	}
 
+	public AssrtStateVarHeaderAnnot reconstruct(
+			List<AssrtLocatedStateVarDeclList> svars)
+	{
+		AssrtStateVarHeaderAnnot dup = dupNode();
+		dup.addScribChildren(svars);
+		dup.setDel(del());  // No copy
+		return dup;
+	}
+
 	@Override
 	public AssrtStateVarHeaderAnnot visitChildren(AstVisitor v)
 			throws ScribException
 	{
-		AssrtStateVarDeclList svars = getStateVarDeclListChild();
-		if (svars != null)  // CHECKME: now never null? (or shouldn't be?)
+		if (!isLocated())
 		{
-			svars = (AssrtStateVarDeclList) visitChild(svars, v);
+			AssrtStateVarDeclList svars = getStateVarDeclListChild();
+			if (svars != null)  // CHECKME: now never null? (or shouldn't be?)
+			{
+				svars = (AssrtStateVarDeclList) visitChild(svars, v);
+			}
+			AssrtBExprNode ass = getAnnotAssertChild();
+			if (ass != null)
+			{
+				ass = (AssrtBExprNode) visitChild(ass, v);
+			}
+			return reconstruct(svars, ass);
 		}
-		AssrtBExprNode ass = getAnnotAssertChild();
-		if (ass != null)
+		else
 		{
-			ass = (AssrtBExprNode) visitChild(ass, v);
+			List<AssrtLocatedStateVarDeclList> visited = new LinkedList<>();
+			for (AssrtLocatedStateVarDeclList x : getLocatedStateVarDeclListChildren())
+			{
+				visited.add((AssrtLocatedStateVarDeclList) visitChild(x, v));
+			}
+			return reconstruct(visited);
 		}
-		return reconstruct(svars, ass);
 	}
 
 	@Override
 	public String toString()
 	{
-		return getStateVarDeclListChild() + " " + getAnnotAssertChild();
+		return !isLocated()
+				? getStateVarDeclListChild() + " " + getAnnotAssertChild()
+				: getLocatedStateVarDeclListChildren().stream().map(Object::toString)
+						.collect(Collectors.joining(", "));
 	}
 }

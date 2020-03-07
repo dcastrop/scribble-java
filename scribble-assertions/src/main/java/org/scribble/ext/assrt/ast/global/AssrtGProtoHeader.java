@@ -39,7 +39,7 @@ public class AssrtGProtoHeader extends GProtoHeader
 		super(node);
 	}
 
-	public boolean isLocated()
+	public boolean isLocated()  // HACK TODO refactor
 	{
 		return getChild(
 				ASSRT_STATEVARDECLLIST_CHILD_INDEX) instanceof AssrtLocatedStateVarDeclList;
