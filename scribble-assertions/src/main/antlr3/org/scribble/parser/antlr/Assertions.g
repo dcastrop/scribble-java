@@ -154,24 +154,27 @@ tokens
 		parser.setTreeAdaptor(new AssertionsTreeAdaptor());
 		AssrtStateVarHeaderAnnot tmp = (AssrtStateVarHeaderAnnot) 
 				parser.assrt_headerannot().getTree();
-		AssrtStateVarDeclList svars = (AssrtStateVarDeclList)
-				tmp.getChild(AssrtStateVarHeaderAnnot.ASSRT_STATEVARDECLLIST_CHILD_INDEX);
-		for (int i = 0; i < svars.getChildCount(); i++)
+		if (!tmp.isLocated())
 		{
-			AssrtStateVarDecl sdecl = (AssrtStateVarDecl) svars.getChild(i);
-			CommonTree arith_expr = (CommonTree) 
-					sdecl.getChild(AssrtStateVarDecl.ASSRT_STATEVAREXPR_CHILD_INDEX);
-			AssrtAExprNode arg = new AssrtAExprNode(t.getType(), t, (AssrtAFormula)
-					AssrtAntlrToFormulaParser.getInstance().parse(arith_expr));
-			sdecl.setChild(AssrtStateVarDecl.ASSRT_STATEVAREXPR_CHILD_INDEX, arg);
-		}
-		if (tmp.getChildCount() > 1)
-		{
-			CommonTree bool_expr = (CommonTree) 
-					tmp.getChild(AssrtStateVarHeaderAnnot.ASSRT_ASSERTION_CHILD_INDEX);
-			AssrtBExprNode ass = new AssrtBExprNode(t.getType(), t, (AssrtBFormula)
-					AssrtAntlrToFormulaParser.getInstance().parse(bool_expr));
-			tmp.setChild(AssrtStateVarHeaderAnnot.ASSRT_ASSERTION_CHILD_INDEX, ass);
+			AssrtStateVarDeclList svars = (AssrtStateVarDeclList)
+					tmp.getChild(AssrtStateVarHeaderAnnot.ASSRT_STATEVARDECLLIST_CHILD_INDEX);
+			for (int i = 0; i < svars.getChildCount(); i++)
+			{
+				AssrtStateVarDecl sdecl = (AssrtStateVarDecl) svars.getChild(i);
+				CommonTree arith_expr = (CommonTree) 
+						sdecl.getChild(AssrtStateVarDecl.ASSRT_STATEVAREXPR_CHILD_INDEX);
+				AssrtAExprNode arg = new AssrtAExprNode(t.getType(), t, (AssrtAFormula)
+						AssrtAntlrToFormulaParser.getInstance().parse(arith_expr));
+				sdecl.setChild(AssrtStateVarDecl.ASSRT_STATEVAREXPR_CHILD_INDEX, arg);
+			}
+			if (tmp.getChildCount() > 1)
+			{
+				CommonTree bool_expr = (CommonTree) 
+						tmp.getChild(AssrtStateVarHeaderAnnot.ASSRT_ASSERTION_CHILD_INDEX);
+				AssrtBExprNode ass = new AssrtBExprNode(t.getType(), t, (AssrtBFormula)
+						AssrtAntlrToFormulaParser.getInstance().parse(bool_expr));
+				tmp.setChild(AssrtStateVarHeaderAnnot.ASSRT_ASSERTION_CHILD_INDEX, ass);
+			}
 		}
 		return tmp;
 	}
