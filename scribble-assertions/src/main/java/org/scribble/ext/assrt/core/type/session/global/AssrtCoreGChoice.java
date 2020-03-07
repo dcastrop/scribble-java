@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.antlr.runtime.tree.CommonTree;
 import org.scribble.core.type.kind.Global;
@@ -105,7 +106,8 @@ public class AssrtCoreGChoice extends AssrtCoreChoice<Global, AssrtCoreGType>
 
 	@Override
 	public AssrtCoreLType projectInlined(AssrtCore core, Role self,
-			AssrtBFormula f) throws AssrtCoreSyntaxException
+			AssrtBFormula f, Map<RecVar, List<AssrtIntVar>> svars,
+			Set<AssrtIntVar> seenSvars) throws AssrtCoreSyntaxException
 	{
 		AssrtCoreLTypeFactory tf = (AssrtCoreLTypeFactory) core.config.tf.local;
 		LinkedHashMap<AssrtCoreMsg, AssrtCoreLType> projs = new LinkedHashMap<>();
@@ -135,7 +137,12 @@ public class AssrtCoreGChoice extends AssrtCoreChoice<Global, AssrtCoreGType>
 						a.pay, fproj);
 			}*/
 
-			projs.put(a, e.getValue().projectInlined(core, self, fproj));
+			Set<AssrtIntVar> seenSvars1 = Stream
+					.concat(seenSvars.stream(), a.ass.getIntVars().stream())
+					.collect(Collectors.toSet());
+
+			projs.put(a,
+					e.getValue().projectInlined(core, self, fproj, svars, seenSvars1));
 					// N.B. local actions directly preserved from globals -- so core-receive also has assertion (cf. AssrtGMessageTransfer.project, currently no AssrtLReceive)
 					// FIXME: receive assertion projection -- should not be the same as send?
 		}

@@ -170,6 +170,22 @@ type <dotnet> "System.String" from "..." as String;
 // - fix syntax -- TODO: deprecate AssrtStateVarAnnotNode for an intermediary CommonTree
 // - deprecate "constant propagation" -- prevents loops counting or any example where assertion not valid now under constant but could be later -- now: restored
 
+
+
+/*...global protocol Proto1(role A, role B) @'<x:=1, y:=2> x>1 || y>1'
+{
+	choice at A
+	{
+		1() from A to B; @'x>1'
+	}
+	or 
+	{
+		2() from A to B;
+	}	
+}*/
+
+
+
 global protocol Proto1(role A, role B, role C) {
   1(x:int) from A to B;    @'x>0'
   do Proto1Aux(A, B, C);   @'<x>'
@@ -177,8 +193,9 @@ global protocol Proto1(role A, role B, role C) {
 
 aux global protocol Proto1Aux(role A, role B, role C) @'<x1:=1> x1>0' {
   2() from C to B;  // FIXME: x1 globally inlined to x is incorrect for C (C doesn't know x)
-  3() from C to A;
+  3() from C to A; @'x1>0'
 }
+
 
 /*
 global protocol Proto1(role A, role B)
@@ -200,6 +217,35 @@ aux global protocol Proto1Aux(role A, role B) @"<y:=1> y>0"
 	}
 }
 //*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 /*

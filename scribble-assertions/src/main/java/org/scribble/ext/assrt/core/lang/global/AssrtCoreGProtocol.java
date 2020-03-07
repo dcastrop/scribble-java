@@ -13,6 +13,7 @@
  */
 package org.scribble.ext.assrt.core.lang.global;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -163,10 +164,24 @@ public class AssrtCoreGProtocol extends GProtocol
 	@Override
 	public AssrtCoreLProjection projectInlined(Core core, Role self)
 	{
+		Map<RecVar, List<AssrtIntVar>> svars = new HashMap<>();
+		if (this.type instanceof AssrtCoreGRec)  // FIXME HACK
+		{
+			svars.put(((AssrtCoreGRec) this.type).recvar,
+					this.statevars.keySet().stream().collect(Collectors.toList()));  // ordered
+		}
+
 		AssrtCoreLType proj = this.type.projectInlined((AssrtCore) core, self,
-				AssrtTrueFormula.TRUE);
+				AssrtTrueFormula.TRUE, svars, Collections.emptySet());
 		LProtoName fullname = InlinedProjector
 				.getFullProjectionName(this.fullname, self);
+		
+		/*System.out.println("1111: "
+				+ proj.assrtCoreGather(
+						new AssrtCoreStateVarGatherer<Local, AssrtCoreLType>(
+								this.statevars.keySet())::visit)
+						.collect(Collectors.toSet()));*/
+
 		return new AssrtCoreLProjection(this.mods, fullname, this.roles, self,
 				this.params, this.fullname, proj, this.statevars, this.assertion);
 	}

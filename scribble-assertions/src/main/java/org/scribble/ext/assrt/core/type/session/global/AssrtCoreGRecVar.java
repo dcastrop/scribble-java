@@ -1,8 +1,11 @@
 package org.scribble.ext.assrt.core.type.session.global;
 
 import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.antlr.runtime.tree.CommonTree;
@@ -61,10 +64,22 @@ public class AssrtCoreGRecVar extends AssrtCoreRecVar<Global, AssrtCoreGType>
 
 	@Override
 	public AssrtCoreLRecVar projectInlined(AssrtCore core, Role self,
-			AssrtBFormula f)
+			AssrtBFormula f, Map<RecVar, List<AssrtIntVar>> svars,
+			Set<AssrtIntVar> seenSvars)
 	{
+		List<AssrtAFormula> sexprs = new LinkedList<>();
+		Iterator<AssrtAFormula> it = this.stateexprs.iterator();
+		svars.get(this.recvar).stream().forEach(x ->
+			{
+				AssrtAFormula next = it.next();
+				if (seenSvars.contains(x))  // FIXME probably need to update seen as traversing sexprs left to right
+				{
+					sexprs.add(next);
+				}
+			});
+
 		return ((AssrtCoreLTypeFactory) core.config.tf.local).AssrtCoreLRecVar(null,
-				this.recvar, this.stateexprs);
+				this.recvar, sexprs);
 	}
 
 	@Override

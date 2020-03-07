@@ -3,9 +3,11 @@ package org.scribble.ext.assrt.core.type.session.global;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.scribble.core.type.kind.Global;
 import org.scribble.core.type.name.DataName;
+import org.scribble.core.type.name.RecVar;
 import org.scribble.core.type.name.Role;
 import org.scribble.core.type.name.Substitutions;
 import org.scribble.ext.assrt.core.job.AssrtCore;
@@ -54,7 +56,8 @@ public class AssrtCoreGEnd extends AssrtCoreEnd<Global, AssrtCoreGType>
 
 	@Override
 	public AssrtCoreLEnd projectInlined(AssrtCore core, Role self,
-			AssrtBFormula f)
+			AssrtBFormula f, Map<RecVar, List<AssrtIntVar>> svars,
+			Set<AssrtIntVar> seenSvars)
 	{
 		return ((AssrtCoreLTypeFactory) core.config.tf.local).AssrtCoreLEnd();
 	}

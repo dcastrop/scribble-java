@@ -7,9 +7,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.antlr.runtime.tree.CommonTree;
 import org.scribble.core.type.kind.Global;
+import org.scribble.core.type.kind.Local;
 import org.scribble.core.type.name.DataName;
 import org.scribble.core.type.name.RecVar;
 import org.scribble.core.type.name.Role;
@@ -26,6 +28,7 @@ import org.scribble.ext.assrt.core.type.session.local.AssrtCoreLRecVar;
 import org.scribble.ext.assrt.core.type.session.local.AssrtCoreLType;
 import org.scribble.ext.assrt.core.type.session.local.AssrtCoreLTypeFactory;
 import org.scribble.ext.assrt.core.visit.gather.AssrtCoreRecVarGatherer;
+import org.scribble.ext.assrt.core.visit.gather.AssrtCoreStateVarGatherer;
 import org.scribble.ext.assrt.core.visit.global.AssrtCoreGTypeInliner;
 
 public class AssrtCoreGRec extends AssrtCoreRec<Global, AssrtCoreGType>
@@ -77,13 +80,45 @@ public class AssrtCoreGRec extends AssrtCoreRec<Global, AssrtCoreGType>
 
 	@Override
 	public AssrtCoreLType projectInlined(AssrtCore core, Role self,
-			AssrtBFormula f) throws AssrtCoreSyntaxException
+			AssrtBFormula f, Map<RecVar, List<AssrtIntVar>> svars,
+			Set<AssrtIntVar> seenSvars) throws AssrtCoreSyntaxException
 	{
-		AssrtCoreLType proj = this.body.projectInlined(core, self, f);
+		Map<RecVar, List<AssrtIntVar>> svars1 = new HashMap<>(svars);
+		svars1.put(this.recvar,
+				this.statevars.keySet().stream().collect(Collectors.toList()));
+
+		Set<AssrtIntVar> seenSvars1 = Stream
+				.concat(seenSvars.stream(),
+						this.statevars.values().stream()
+								.flatMap(x -> x.getIntVars().stream()))
+				.collect(Collectors.toSet());
+
+		AssrtCoreLType proj = this.body.projectInlined(core, self, f, svars1,
+				seenSvars1);
+
+		//System.out.println("2222: " + this + " ,, " + this.statevars.keySet());
+		Set<AssrtIntVar> foo = proj.assrtCoreGather(
+				new AssrtCoreStateVarGatherer<Local, AssrtCoreLType>(
+						this.statevars.keySet())::visit)
+				.collect(Collectors.toSet());
+		System.out.println("2222: " + foo);
+		
+		LinkedHashMap<AssrtIntVar, AssrtAFormula> tmp = new LinkedHashMap<>();
+		this.statevars.entrySet().stream().forEach(x ->
+			{
+				AssrtIntVar key = x.getKey();
+				if (foo.contains(key))
+				{
+					tmp.put(key, x.getValue());
+				}
+			});
+	
+		...HERE: "project" this.assertion?
+
 		return (proj instanceof AssrtCoreLRecVar) 
 				? AssrtCoreLEnd.END
 				: ((AssrtCoreLTypeFactory) core.config.tf.local).AssrtCoreLRec(null,
-						this.recvar, this.statevars, proj, this.assertion);
+						this.recvar, tmp, proj, this.assertion);
 	}
 
 	@Override

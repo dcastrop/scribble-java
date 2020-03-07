@@ -2,9 +2,11 @@ package org.scribble.ext.assrt.core.type.session.global;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.scribble.core.type.kind.Global;
 import org.scribble.core.type.name.DataName;
+import org.scribble.core.type.name.RecVar;
 import org.scribble.core.type.name.Role;
 import org.scribble.core.type.name.Substitutions;
 import org.scribble.ext.assrt.core.job.AssrtCore;
@@ -30,8 +32,9 @@ public interface AssrtCoreGType extends AssrtCoreSType<Global, AssrtCoreGType>
 	AssrtCoreGType inline(AssrtCoreGTypeInliner v);
 	AssrtCoreGType pruneRecs(AssrtCore core);
 
-	AssrtCoreLType projectInlined(AssrtCore core, Role self, AssrtBFormula f)
-			throws AssrtCoreSyntaxException;  // N.B. checking "mergability"
+	AssrtCoreLType projectInlined(AssrtCore core, Role self, AssrtBFormula f,
+			Map<RecVar, List<AssrtIntVar>> svars, Set<AssrtIntVar> seenSvars)
+			throws AssrtCoreSyntaxException;  // N.B. checking (basic) "mergability"
 	
 	List<AssrtAnnotDataName> collectAnnotDataVarDecls(
 			Map<AssrtIntVar, DataName> env);  // Currently only the vars are needed (not the data types)
