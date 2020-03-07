@@ -88,6 +88,7 @@ tokens
 	import org.scribble.ext.assrt.ast.AssrtStateVarArgList;
 	import org.scribble.ext.assrt.ast.AssrtStateVarDecl;
 	import org.scribble.ext.assrt.ast.AssrtStateVarDeclList;
+	import org.scribble.ext.assrt.ast.AssrtLocatedStateVarDeclList;
   import org.scribble.ext.assrt.ast.name.simple.AssrtIntVarNameNode;
 	import org.scribble.ext.assrt.core.type.formula.AssrtAFormula;
 	import org.scribble.ext.assrt.core.type.formula.AssrtBFormula;
@@ -174,6 +175,31 @@ tokens
 				AssrtBExprNode ass = new AssrtBExprNode(t.getType(), t, (AssrtBFormula)
 						AssrtAntlrToFormulaParser.getInstance().parse(bool_expr));
 				tmp.setChild(AssrtStateVarHeaderAnnot.ASSRT_ASSERTION_CHILD_INDEX, ass);
+			}
+		}
+		else
+		{
+			List<AssrtLocatedStateVarDeclList> svars = tmp.getLocatedStateVarDeclListChildren();
+			for (int i = 0; i < svars.size(); i++)
+			{
+				AssrtLocatedStateVarDeclList x = svars.get(i);
+				
+				for (int j = 1; j < x.getChildCount() - 1; j++)
+				{
+					AssrtStateVarDecl sdecl = (AssrtStateVarDecl) x.getChild(j);
+					CommonTree arith_expr = (CommonTree) 
+							sdecl.getChild(AssrtStateVarDecl.ASSRT_STATEVAREXPR_CHILD_INDEX);
+					AssrtAExprNode arg = new AssrtAExprNode(t.getType(), t, (AssrtAFormula)
+							AssrtAntlrToFormulaParser.getInstance().parse(arith_expr));
+					sdecl.setChild(AssrtStateVarDecl.ASSRT_STATEVAREXPR_CHILD_INDEX, arg);
+				}
+				CommonTree bool_expr = (CommonTree) 
+						x.getChild(x.getChildCount() - 1);
+				AssrtBExprNode ass = new AssrtBExprNode(t.getType(), t, (AssrtBFormula)
+				AssrtAntlrToFormulaParser.getInstance().parse(bool_expr));
+				x.setChild(x.getChildCount()-1, ass);
+				
+				tmp.setChild(i, x);
 			}
 		}
 		return tmp;
@@ -378,9 +404,9 @@ assrt_headerannot:
 ;
 
 assrt_locatedstatevardecls:
-	rolename '<' assrt_statevardecl (',' assrt_statevardecl)* '>' bool_expr?
+	rolename '<' assrt_statevardecl (',' assrt_statevardecl)* '>' bool_expr
 ->
-	^(ASSRT_LOCATEDSTATEVARDECLLIST rolename assrt_statevardecl+ bool_expr?)
+	^(ASSRT_LOCATEDSTATEVARDECLLIST rolename assrt_statevardecl+ bool_expr)
 ;
 
 assrt_statevardecls:

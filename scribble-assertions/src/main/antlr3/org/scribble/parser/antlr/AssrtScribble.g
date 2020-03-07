@@ -224,6 +224,7 @@ tokens
   import org.scribble.ext.assrt.ast.AssrtBExprNode;
   import org.scribble.ext.assrt.ast.name.simple.AssrtIntVarNameNode;
   import org.scribble.ext.assrt.core.type.formula.AssrtBFormula;
+  import org.scribble.ext.assrt.ast.AssrtStateVarHeaderAnnot;
 }
 
 
@@ -248,6 +249,18 @@ tokens
   	}
   	return id;
   }
+  
+	public static Object foo(Token t) throws RecognitionException
+	{ 
+		AssrtStateVarHeaderAnnot hdr = AssertionsParser.parseStateVarHeader(t);
+		return hdr.isLocated() ? hdr : hdr.getStateVarDeclListChild();
+	}
+
+	public static Object bar(Token t) throws RecognitionException
+	{ 
+		AssrtStateVarHeaderAnnot hdr = AssertionsParser.parseStateVarHeader(t);
+		return hdr.isLocated() ? null : hdr.getAnnotAssertChild();
+	}
 }
 
 
@@ -544,8 +557,9 @@ assrt_gprotoheader:
 			// TODO: paramdecls
 ->
 	^(ASSRT_GPROTOHEADER simplegprotoname ^(PARAMDECL_LIST) roledecls 
-			{AssertionsParser.parseStateVarHeader($EXTID).getStateVarDeclListChild()}  // Passing the whole token
-			{AssertionsParser.parseStateVarHeader($EXTID).getAnnotAssertChild()})
+			{foo($EXTID)}  // Passing the whole token
+			//{AssertionsParser.parseStateVarHeader($EXTID).getAnnotAssertChild()})
+			{bar($EXTID)})
 			// FIXME: EXTID parsed twice -- how to factor out without changing AssrtGProtoHeader? (Or just change latter?)
 ;
 // Following same pattern as gmsgtransfer: explicitly invoke AssertionsParser, and extra assertion element only for new category

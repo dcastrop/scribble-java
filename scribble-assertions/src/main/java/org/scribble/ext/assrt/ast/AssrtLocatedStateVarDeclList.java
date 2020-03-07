@@ -56,6 +56,7 @@ public class AssrtLocatedStateVarDeclList extends ParamDeclList<AssrtIntVarKind>
 				.collect(Collectors.toList());
 	}
 
+	// N.B. currently mandatory -- TODO FIXME
 	public AssrtBExprNode getAnnotAssertChild()  // Cf. AssrtGProtoHeader
 	{
 		return (AssrtBExprNode) getChild(getChildCount() - 1);

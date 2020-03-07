@@ -15,10 +15,11 @@ package org.scribble.ext.assrt.parser.assertions;
 
 import org.antlr.runtime.Token;
 import org.antlr.runtime.tree.CommonTreeAdaptor;
-import org.scribble.ext.assrt.ast.AssrtStateVarHeaderAnnot;
+import org.scribble.ext.assrt.ast.AssrtLocatedStateVarDeclList;
 import org.scribble.ext.assrt.ast.AssrtStateVarArgList;
 import org.scribble.ext.assrt.ast.AssrtStateVarDecl;
 import org.scribble.ext.assrt.ast.AssrtStateVarDeclList;
+import org.scribble.ext.assrt.ast.AssrtStateVarHeaderAnnot;
 
 // Cf. ScribTreeAdaptor
 public class AssertionsTreeAdaptor extends CommonTreeAdaptor
@@ -46,6 +47,10 @@ public class AssertionsTreeAdaptor extends CommonTreeAdaptor
 			return new AssrtStateVarDecl(t);
 		case "ASSRT_STATEVARARG_LIST":
 			return new AssrtStateVarArgList(t);
+
+		case "ASSRT_LOCATEDSTATEVARDECLLIST":
+			return new AssrtLocatedStateVarDeclList(t);
+
 		default:
 			return super.create(t);
 		}

@@ -1,9 +1,5 @@
 package org.scribble.ext.assrt.ast.global;
 
-import java.util.LinkedList;
-import java.util.List;
-import java.util.stream.Collectors;
-
 import org.antlr.runtime.Token;
 import org.scribble.ast.NonRoleParamDeclList;
 import org.scribble.ast.ProtoHeader;
@@ -13,9 +9,9 @@ import org.scribble.ast.name.qualified.ProtoNameNode;
 import org.scribble.core.type.kind.Global;
 import org.scribble.del.DelFactory;
 import org.scribble.ext.assrt.ast.AssrtBExprNode;
-import org.scribble.ext.assrt.ast.AssrtLocatedStateVarDeclList;
 import org.scribble.ext.assrt.ast.AssrtStateVarDeclList;
 import org.scribble.ext.assrt.ast.AssrtStateVarDeclNode;
+import org.scribble.ext.assrt.ast.AssrtStateVarHeaderAnnot;
 import org.scribble.ext.assrt.del.AssrtDelFactory;
 import org.scribble.util.ScribException;
 import org.scribble.visit.AstVisitor;
@@ -42,7 +38,7 @@ public class AssrtGProtoHeader extends GProtoHeader
 	public boolean isLocated()  // HACK TODO refactor
 	{
 		return getChild(
-				ASSRT_STATEVARDECLLIST_CHILD_INDEX) instanceof AssrtLocatedStateVarDeclList;
+				ASSRT_STATEVARDECLLIST_CHILD_INDEX) instanceof AssrtStateVarHeaderAnnot;
 	}
 
 	@Override
@@ -66,17 +62,14 @@ public class AssrtGProtoHeader extends GProtoHeader
 		return (AssrtBExprNode) getChild(ASSRT_ASSERTION_CHILD_INDEX);
 	}
 
-	public List<AssrtLocatedStateVarDeclList> getLocatedStateVarDeclListChildren()
+	public AssrtStateVarHeaderAnnot getLocatedStateVarDeclListChildren()
 	{
 		if (!isLocated())
 		{
 			throw new RuntimeException("Shouldn't get in here: ");
 		}
-		return getChildren().stream()
-				.skip(ASSRT_STATEVARDECLLIST_CHILD_INDEX)
-				.limit(getChildCount() - ASSRT_STATEVARDECLLIST_CHILD_INDEX)
-				.map(x -> (AssrtLocatedStateVarDeclList) x)
-				.collect(Collectors.toList());
+		return (AssrtStateVarHeaderAnnot) getChild(
+				ASSRT_STATEVARDECLLIST_CHILD_INDEX);
 	}
 
 	// "add", not "set"
@@ -93,11 +86,11 @@ public class AssrtGProtoHeader extends GProtoHeader
 
 	public void addScribChildren(ProtoNameNode<Global> name,
 			NonRoleParamDeclList ps, RoleDeclList rs,
-			List<AssrtLocatedStateVarDeclList> svars)
+			AssrtStateVarHeaderAnnot svars)
 	{
 		// Cf. above getters and Scribble.g children order
 		super.addScribChildren(name, ps, rs);
-		addChildren(svars);
+		addChild(svars);
 	}
 	
 	@Override
@@ -124,7 +117,7 @@ public class AssrtGProtoHeader extends GProtoHeader
 
 	public AssrtGProtoHeader reconstruct(ProtoNameNode<Global> name,
 			NonRoleParamDeclList ps, RoleDeclList rs,
-			List<AssrtLocatedStateVarDeclList> svars)
+			AssrtStateVarHeaderAnnot svars)
 	{
 		AssrtGProtoHeader dup = dupNode();
 		dup.addScribChildren(name, ps, rs, svars);
@@ -153,11 +146,8 @@ public class AssrtGProtoHeader extends GProtoHeader
 		}
 		else
 		{
-			List<AssrtLocatedStateVarDeclList> svars = new LinkedList<>();
-			for (AssrtLocatedStateVarDeclList x : getLocatedStateVarDeclListChildren())
-			{
-				svars.add((AssrtLocatedStateVarDeclList) visitChild(x, v));
-			}
+			AssrtStateVarHeaderAnnot svars = (AssrtStateVarHeaderAnnot) visitChild(
+					getLocatedStateVarDeclListChildren(), v);
 			return reconstruct(sup.getNameNodeChild(), sup.getParamDeclListChild(),
 					sup.getRoleDeclListChild(), svars);
 		}
@@ -167,7 +157,8 @@ public class AssrtGProtoHeader extends GProtoHeader
 	public String toString()
 	{
 		return super.toString() //+ " " + this.ass;
-				+ annotToString();
+				+ (isLocated() ? this.getLocatedStateVarDeclListChildren()
+						: annotToString());
 	}
 }
 

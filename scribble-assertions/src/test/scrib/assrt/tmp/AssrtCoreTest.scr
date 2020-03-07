@@ -172,7 +172,8 @@ type <dotnet> "System.String" from "..." as String;
 
 
 
-global protocol Proto1(role A, role B) @'A:<x:=1> true, B:<x:=1> true' {
+global protocol Proto1(role A, role B) @'A <x:=1> True, B <x:=1> True' {
+	1() from A to B;
 }
 
 /*
