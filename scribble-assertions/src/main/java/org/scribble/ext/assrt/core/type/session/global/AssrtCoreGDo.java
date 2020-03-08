@@ -104,6 +104,9 @@ public class AssrtCoreGDo extends AssrtCoreDo<Global, AssrtCoreGType>
 		LinkedHashMap<AssrtIntVar, AssrtAFormula> svars = new LinkedHashMap<>();
 		// "Inlining" action sexprs as target rec svar-exprs
 		Iterator<AssrtAFormula> sexprs = this.stateexprs.iterator();
+		
+		...HERE: filter if missing prereq knowledge -- latter assertions may then become BF (should be caught by model checker K)
+		
 		gpro.statevars.keySet().forEach(x -> svars.put(x, sexprs.next()));  // gpro.statevars keyset is ordered
 				// Do-inlining is implicitly a f/w entry: also "inline" (i.e., replace) target svar exprs by this.sexprs -- sexprs o/w only carried by recvar (which f/w entry is not) 
 		// Cf. AssrtCoreEGraphBuilder.buildEdgeAndContinuation, AssrtCoreLRec `cont` f/w rec
