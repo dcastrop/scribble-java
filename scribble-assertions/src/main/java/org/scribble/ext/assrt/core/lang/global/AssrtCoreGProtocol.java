@@ -188,7 +188,7 @@ public class AssrtCoreGProtocol extends GProtocol
 		LProtoName fullname = InlinedProjector
 				.getFullProjectionName(this.fullname, self);
 
-		LinkedHashMap<AssrtIntVar, AssrtAFormula> svars = new LinkedHashMap<>();
+		LinkedHashMap<AssrtIntVar, AssrtAFormula> svars = new LinkedHashMap<>();  // Corresponds to known, but need LinkedHashMap here
 		this.statevars.entrySet().stream()  // ordered
 				.filter(x ->
 					{

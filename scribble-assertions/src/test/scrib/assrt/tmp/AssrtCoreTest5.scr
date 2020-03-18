@@ -1,0 +1,173 @@
+//Raymond@HZHL3 ~/code/eclipse/scribble/github.com/rhu1-assrt/scribble-java
+//$ bin/scribblec-assrt.sh -ip scribble-assertions/src/test/scrib/ -d scribble-assertions/src/test/scrib/ scribble-assertions/src/test/scrib/assrt/tmp/AssrtCoreTest5.scr -batch -fair -z3 -assrt
+
+
+
+module assrt.tmp.AssrtCoreTest5;
+
+
+type <fstar> "int" from "" as int;
+//type <fstar> "bool" from "" as bool;
+type <fstar> "string" from "" as String;
+
+
+
+
+
+
+global protocol HigherLower(role A, role B, role C) {
+  start(n:int) from A to B;  @'0<=n && n<100'
+  do HigherLowerAux(A, B, C);     @'<n>'
+}
+
+aux global protocol HigherLowerAux(role A, role B, role C) @'<n1:B=0>' {
+  guess(x:int) from C to B;  // TODO: add guess refinement
+  choice at B {
+    higher() from B to C;   @'n1>x'
+    higher() from B to A;
+    do HigherLowerAux(A, B, C);  @'<n1>'
+  } or {
+    win() from B to C;      @'n1=x'
+    win() from B to A;
+  } or {
+    lower() from B to C;    @'n1<x'
+    lower() from B to A;
+    do HigherLowerAux(A, B, C);  @'<n1>'
+  }
+}
+
+
+global protocol HLLimit(role A, role B, role C) {
+  start(n:int) from A to B;  @'0<=n && n<100'
+  limit(t:int) from A to B;  @'t>0'
+  do HLLimitAux(A, B, C);     @'<n, t>'
+}
+
+aux global protocol HLLimitAux(role A, role B, role C) @'<n1:B=0, t1:B=1> t1>0' {
+  guess(x:int) from C to B;  @'0<=x && x<100'  // Added this refinement
+  choice at B {
+    higher() from B to C;    @'n1>x && t1>1'
+    higher() from B to A;
+    do HLLimitAux(A, B, C);   @'<n1, t1-1>'
+  } or {
+    win() from B to C;       @'n1=x'
+    lose() from B to A;
+  } or {
+    lose() from B to C;      //@'(!(n1=x)) && t1=1'  // FIXME: ! precedence
+                             @'((n1<x || n1>x) && t1=1)'
+    win() from B to A;
+  } or {
+    lower() from B to C;     @'n1<x && t1>1'
+    lower() from B to A;
+    do HLLimitAux(A, B, C);   @'<n1, t1-1>'
+  }
+}
+
+
+global protocol HLCrefine(role A, role B, role C) {
+  start(n:int) from A to B;     @'0<=n && n<100'
+  limit(t:int) from A to B;     @'t>0'
+  guess(x:int) from C to B;
+  do HLCrefineAux(A, B, C);        @'<n, t, x, x>'
+}
+
+aux global protocol HLCrefineAux(role A, role B, role C) 
+                                @'<n1:B=0, t1:B=0, xB:B=0, xC:C=0> t1>=0' {
+  choice at B {
+    higher() from B to C;       @'n1>xB && t1>0'
+    higher() from B to A;
+    guess(x2:int) from C to B;  @'x2>xC'  // TODO: add guess interval
+    do HLCrefineAux(A, B, C);      @'<n1, t1-1, x2, x2>'
+  } or {
+    win() from B to C;          @'n1=xB'
+    lose() from B to A;
+  } or {
+    lose() from B to C;         @'(!(n1=xB)) && t1=0'  // FIXME: ! precedence
+    win() from B to A;
+  } or {
+    lower() from B to C;        @'n1<xB && t1>0'
+    lower() from B to A;
+    guess(x3:int) from C to B;  @'x3<xC'
+    do HLCrefineAux(A, B, C);      @'<n1, t1-1, x3, x3>'
+  }
+}
+
+
+
+
+
+
+global protocol DbC(role Buyer, role Seller, role Bank) @"<pvo:=100>"
+{
+  offer(vo:int) from Buyer to Seller; @"vo >= 100"
+  choice at Seller {
+    hag() from Seller to Buyer; @"vo > pvo"
+    dummy() from Buyer to Bank;  // For merge
+    do DbC(Buyer, Seller, Bank); @"<vo>"
+  } or {
+    ok() from Seller to Buyer;
+    payment(vp:int) from Buyer to Bank; @"vo = vp"
+    //ack(va:bool) from Bank to Seller;
+    ack(va:int) from Bank to Seller;  @"(0 <= va) && (va <= 1)"
+  }
+}
+
+
+
+
+
+
+global protocol OnlineWallet(role S, role C, role A) {
+ login(id: String, pw: String) from C to A;
+ choice at A {
+   login_ok() from A to C;
+   login_ok() from A to S;
+   account(balance: int, overdraft: int) from S to C; @"balance>=0 && overdraft>=0"
+   do Authenticated(S, C, A); @"<balance + overdraft>"
+ } or {
+   login_fail(error: String) from A to C;
+   login_fail() from A to S;
+ }
+}
+
+aux global protocol Authenticated(role S, role C, role A) @"<allowance:C=0> allowance>=0" {
+ choice at C {
+   pay(payee: String, amount: int) from C to S; @"amount<=allowance"
+   account(newbalance: int, newoverdraft: int) from S to C; @"newbalance>=0 && newoverdraft>=0"
+   dummy1() from C to A;
+   do Authenticated(S, C, A); @"<newbalance + newoverdraft>"
+ } or {
+   quit() from C to S;
+   dummy2() from C to A;
+ }
+}
+
+
+
+
+global protocol OAuth (role C, role S, role A) {
+	login(account: int) from S to C;
+	do Auth(C, S, A); @"<0>"
+}
+
+//aux global protocol Auth (role C, role S, role A) @"<try:=0> try>=0 && try<=3" {
+// password() from C to A;
+// authed() from A to S;
+//}
+
+aux global protocol Auth(role C, role S, role A) //@"<try:=0> try>=0 && try<=3" {
+                                                   @"<try:A=0> try>=0 && try<=3" {
+	password(pwd: int) from C to A;
+	choice at A {
+		authed() from A to S;
+		authed() from S to C;
+	} or {
+		again() from A to S; @"try<3"
+		//again() from S to C;
+		again() from S to C; //@"try<3"  // Cf. this refinement prev. needed when using "global" statevars
+		do Auth(C, S, A); @"<try+1>"
+	} or {
+		failure() from A to S; @"try=3"
+		failure() from S to C;
+	}
+}

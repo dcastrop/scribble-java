@@ -171,7 +171,44 @@ type <dotnet> "..." from "..." as bool;
 // - deprecate "constant propagation" -- prevents loops counting or any example where assertion not valid now under constant but could be later -- now: restored
 
 
-//*
+global protocol HighLow(role A, role B, role C)
+{
+	start(n0:int, t0:int) from A to B;  @'(0<=n0 && n0<100) && 0<t0'
+	do Aux(A, B, C);  @'<n0, t0>'
+}
+
+aux global protocol Aux(role A, role B, role C) @'<n:B=0, t:B=0> (0 <= n && n < 100) && 0 < t'
+{
+	guess(x:int) from C to B;  @'0<=x && x<100'  // Next guess by C
+	choice at B
+	{
+		higher() from B to C;  @'n>x && t>1'    
+		higher() from B to A;
+		do Aux(A, B, C);  @'<n, t-1>'
+	}
+	or
+	{ 
+		win() from B to C;  @'n=x'   
+		lose() from B to A;
+	}
+	or
+	{ 
+		lower() from B to C;  @'n<x && t>1'
+		lower() from B to A;
+		do Aux(A, B, C);  @'<n, t-1>'
+	}
+	or
+	{
+		lose() from B to C;  @'(!(n=x)) && t=1'
+		win() from B to A;
+	}         
+}
+
+
+
+
+
+/*
 global protocol OnlineWallet(role S, role C, role A) {
  login(id: String, pw: String) from C to A;
  choice at A {
